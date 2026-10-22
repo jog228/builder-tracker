@@ -2,6 +2,7 @@ import "server-only";
 import { bonusDate } from "@/lib/scoring/bonus";
 import { countsForStreak, isUpdate, updatePoints } from "@/lib/scoring/updates";
 import { getWeeklyMeetings } from "@/lib/data/meetings";
+import { BADGES } from "@/lib/scoring/config";
 import type { SummaryRow } from "@/lib/summaries/now-building";
 import type { Breakdown, Streak } from "@/lib/scoring/compute";
 import type { ApprovalStatus } from "@/lib/scoring/shipped";
@@ -38,6 +39,9 @@ export type RecentUpdate = {
 };
 
 const HEATMAP_WEEKS = 18;
+
+/** Badges with a rule that awards them; the rest show "coming soon". */
+const LIVE_BADGES = new Set<string>([BADGES.neverMisses.slug]);
 
 export async function getProfile(memberId: string) {
   const supabase = await createClient();
@@ -86,7 +90,7 @@ export async function getProfile(memberId: string) {
       .order("name"),
     supabase
       .from("member_badges")
-      .select("earned_at, badges(slug)")
+      .select("earned_at, period, badges(slug)")
       .eq("member_id", memberId),
     fetchAll<{ created_at: string }>((f, t) =>
       supabase
@@ -156,11 +160,13 @@ export async function getProfile(memberId: string) {
     (approvals ?? []).map((a) => [a.message_id, a.status as ApprovalStatus]),
   );
 
-  const earnedSlugs = new Set(
-    (earned.data ?? []).map(
-      (e) => one(e.badges as { slug: string } | { slug: string }[])?.slug,
-    ),
-  );
+  // Periods ("2026-10" or "all") each badge was earned in.
+  const earnedPeriods = new Map<string, string[]>();
+  for (const e of earned.data ?? []) {
+    const slug = one(e.badges as { slug: string } | { slug: string }[])?.slug;
+    if (slug)
+      earnedPeriods.set(slug, [...(earnedPeriods.get(slug) ?? []), e.period]);
+  }
 
   return {
     member,
@@ -185,10 +191,17 @@ export async function getProfile(memberId: string) {
       : null,
     month: snap(month, 0),
     all: snap("all", 1),
-    badges: (catalog.data ?? []).map((b: BadgeInfo) => ({
-      ...b,
-      earned: earnedSlugs.has(b.slug),
-    })),
+    badges: (catalog.data ?? []).map((b: BadgeInfo) => {
+      const periods = (earnedPeriods.get(b.slug) ?? []).sort();
+      return {
+        ...b,
+        earned: periods.length > 0,
+        /** Months earned, oldest first (per-month badges like Never Misses). */
+        periods: periods.filter((p) => p !== "all"),
+        /** No rule awards it yet (Phase 6). */
+        comingSoon: !LIVE_BADGES.has(b.slug),
+      };
+    }),
     activity: activity.map((a) => a.created_at),
     heatmapWeeks: HEATMAP_WEEKS,
     updates: updateRows.map<RecentUpdate>((u) => {

@@ -38,6 +38,16 @@ export const BONUS = {
 export const BADGES = {
   /** "Demo Day": demoed at this many different events. */
   demoDayMinDemos: 3,
+  /**
+   * "Never Misses", earned per month: attended 100% of that month's held
+   * weekly meetings (lib/attendance/meetings.ts), with at least this many
+   * held so a single meeting doesn't count.
+   */
+  neverMisses: {
+    slug: "never-misses",
+    minMeetings: 2,
+    description: "100% attendance for the month.",
+  },
 } as const;
 
 /** Months and weeks (Monday start) are counted in the club's local time. */

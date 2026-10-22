@@ -1,6 +1,7 @@
 // Loads everything scoring needs, computes snapshots, and saves them.
 // Used by the compute-scores cron route, its script, and admin actions.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { awardBadges } from "../badges/award";
 import { fetchAll, one } from "../supabase/fetch-all";
 import type { BonusRow } from "./bonus";
 import {
@@ -216,12 +217,15 @@ export async function computeAndSaveScores(
         .eq("period", s.period);
     }
 
+    // Badges are earned from the same data (attendance, meetings), right after.
+    const badges = await awardBadges(db, now);
+
     await db
       .from("sync_runs")
       .update({
         status: "success",
         finished_at: new Date().toISOString(),
-        stats: { snapshots: rows.length, month, removed: stale.length },
+        stats: { snapshots: rows.length, month, removed: stale.length, badges },
       })
       .eq("id", run.id);
     return { runId: run.id, snapshots: rows.length, month };

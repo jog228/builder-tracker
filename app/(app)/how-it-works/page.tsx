@@ -20,6 +20,7 @@ import { Eyebrow, PageTitle, Stamp } from "@/components/bs/site";
 import { meetingTimeLabel } from "@/lib/attendance/weeks";
 import { requireViewer } from "@/lib/auth";
 import {
+  BADGES,
   BONUS,
   BUILDER_OF_THE_MONTH,
   GITHUB,
@@ -257,6 +258,31 @@ export default async function HowItWorksPage() {
           </p>
         </Card>
       </div>
+
+      <Card>
+        <SectionTitle hint="more coming soon">Badges</SectionTitle>
+        <ul className="flex flex-col gap-3">
+          <li className="flex items-start gap-3">
+            <Icon
+              icon={CalendarCheck}
+              tone="accent"
+              className="mt-0.5 text-2xl"
+            />
+            <span className="leading-snug">
+              <strong>Never Misses: {BADGES.neverMisses.description}</strong>{" "}
+              <span className="text-slate">
+                Earned each month you attend every weekly meeting held (at least{" "}
+                {BADGES.neverMisses.minMeetings}). It shows as “Never Misses ·
+                Oct 2026” on your profile, next to your season attendance.
+              </span>
+            </span>
+          </li>
+          <li className="text-slate leading-snug">
+            Shipper, On Fire, Night Owl, Crowd Favorite, Helper and Demo Day are
+            coming soon.
+          </li>
+        </ul>
+      </Card>
     </div>
   );
 }

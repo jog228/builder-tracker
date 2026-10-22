@@ -210,7 +210,7 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 ### Phase 6: Badges and Builder of the Month
 - Badge rules engine (`lib/badges/rules.ts`), run after scores are computed, for rankable members only. "Most likes" and "every event" comparisons ignore excluded members. Starter badges:
   - **Shipper**: 3+ shipped posts
-  - **Never Misses**: attended every event this month
+  - **Never Misses** ✅ (built early): 100% attendance for the month, i.e. every weekly meeting held that month (`meetingsHeld()`, same numbers as the profile's Events attended bar), with at least `BADGES.neverMisses.minMeetings` (2) held. Stored per month in `member_badges.period` ("Never Misses · Oct 2026"); the tile also shows season progress ("4 of 4 meetings · 100%"). Awarded by `lib/badges/award.ts` after every score computation, which also removes a month that's no longer earned.
   - **On Fire**: 4-week update streak
   - **Night Owl**: 5+ updates posted after midnight
   - **Crowd Favorite**: most likes in a month

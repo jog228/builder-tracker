@@ -39,7 +39,7 @@ type SnapshotRow = {
     | { display_name: string; avatar_url: string | null }[];
 };
 
-/** Earned badges per member (empty until the Phase 6 rules engine runs). */
+/** Earned badges per member, each badge once (lib/badges/award.ts). */
 export async function getEarnedBadges(): Promise<Map<string, BadgeInfo[]>> {
   const supabase = await createClient();
   const rows = await fetchAll<{
@@ -54,7 +54,10 @@ export async function getEarnedBadges(): Promise<Map<string, BadgeInfo[]>> {
   const byMember = new Map<string, BadgeInfo[]>();
   for (const r of rows) {
     const b = one(r.badges);
-    if (b) byMember.set(r.member_id, [...(byMember.get(r.member_id) ?? []), b]);
+    // Per-month badges (Never Misses) can have several rows: show each once.
+    const mine = byMember.get(r.member_id) ?? [];
+    if (b && !mine.some((x) => x.slug === b.slug))
+      byMember.set(r.member_id, [...mine, b]);
   }
   return byMember;
 }

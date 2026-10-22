@@ -27,9 +27,11 @@ import { FlagShippedButton } from "@/components/profile/flag-button";
 import { NowBuilding } from "@/components/profile/now-building";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
 import { attendanceRate, meetingsHeld } from "@/lib/attendance/meetings";
+import { badgeMonthLabel } from "@/lib/badges/never-misses";
 import { requireViewer } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
+import { BADGES } from "@/lib/scoring/config";
 import { localDate, monthKey } from "@/lib/scoring/time";
 import {
   canEditNowBuilding,
@@ -61,12 +63,18 @@ export default async function BuilderPage({
     p.updates.some((u) => u.streak !== null && u.points > 0),
   );
   const now = new Date();
+  const attendedWeekly = p.events.filter((e) => e.weekly).map((e) => e.date);
+  // Never Misses tile: the whole season so far (same helper as the bar).
+  const season = attendanceRate(
+    meetingsHeld(p.meetings, { today: localDate(now), month: null }),
+    attendedWeekly,
+  );
   const attendance = attendanceRate(
     meetingsHeld(p.meetings, {
       today: localDate(now),
       month: allTime ? null : monthKey(now),
     }),
-    p.events.filter((e) => e.weekly).map((e) => e.date),
+    attendedWeekly,
   );
   const streak = p.all?.breakdown.streak_weeks ?? { current: 0, longest: 0 };
 
@@ -184,23 +192,45 @@ export default async function BuilderPage({
               Badges
             </SectionTitle>
             <div className="grid grid-cols-4 gap-2">
-              {p.badges.map((b) => (
-                <div
-                  key={b.slug}
-                  title={`${b.name}: ${b.description}${b.earned ? "" : " (locked)"}`}
-                  className={cn(
-                    "border-ink flex flex-col items-center gap-1 border-2 p-2 text-center",
-                    b.earned
-                      ? "bg-safety"
-                      : "border-dash border-dashed opacity-45 grayscale",
-                  )}
-                >
-                  <Icon icon={badgeIcon(b.slug)} className="text-2xl" />
-                  <span className="text-xs leading-tight font-bold uppercase">
-                    {b.name}
-                  </span>
-                </div>
-              ))}
+              {p.badges.map((b) => {
+                const neverMisses = b.slug === BADGES.neverMisses.slug;
+                return (
+                  <div
+                    key={b.slug}
+                    title={`${b.name}: ${b.description}${b.comingSoon ? " (coming soon)" : b.earned ? "" : " (locked)"}`}
+                    className={cn(
+                      "border-ink flex flex-col items-center gap-1 border-2 p-2 text-center",
+                      b.earned
+                        ? "bg-safety"
+                        : b.comingSoon
+                          ? "border-dash border-dashed opacity-45 grayscale"
+                          : "border-dash border-dashed",
+                    )}
+                  >
+                    <Icon icon={badgeIcon(b.slug)} className="text-2xl" />
+                    <span className="text-xs leading-tight font-bold uppercase">
+                      {b.name}
+                    </span>
+                    {b.periods.length > 0 && (
+                      <span className="text-[0.7rem] leading-tight font-bold">
+                        {b.periods.map(badgeMonthLabel).join(", ")}
+                      </span>
+                    )}
+                    {neverMisses && !excluded && (
+                      <span className="text-[0.7rem] leading-tight">
+                        {season.held
+                          ? `${season.attended} of ${season.held} meetings · ${season.pct}%`
+                          : "No meetings yet"}
+                      </span>
+                    )}
+                    {b.comingSoon && (
+                      <span className="text-[0.65rem] tracking-wider uppercase">
+                        Coming soon
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </Card>
 
