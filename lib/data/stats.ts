@@ -1,4 +1,5 @@
 import "server-only";
+import { dayLabel } from "@/lib/format";
 import { TIME_ZONE } from "@/lib/scoring/config";
 import { localDate, monthKey, prevWeek, weekKey } from "@/lib/scoring/time";
 import { fetchAll, one } from "@/lib/supabase/fetch-all";
@@ -36,7 +37,7 @@ export async function getStats() {
     ),
     supabase
       .from("events")
-      .select("name, date, attendance(count)")
+      .select("name, date, weekly, attendance(count)")
       .order("date"),
   ]);
 
@@ -113,7 +114,8 @@ export async function getStats() {
               : `${h.hour - 12}p`,
     })),
     attendance: (events.data ?? []).map((e) => ({
-      event: e.name,
+      // Weekly meetings all share a name, so label bars by the meeting date.
+      event: e.weekly ? dayLabel(e.date) : `${e.name} · ${dayLabel(e.date)}`,
       attended: (e.attendance as unknown as { count: number }[])[0]?.count ?? 0,
     })),
   };

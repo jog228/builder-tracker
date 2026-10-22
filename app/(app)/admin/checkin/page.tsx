@@ -88,6 +88,7 @@ export default async function CheckinPage({
       <CheckinSheet
         key={sheet.event.id}
         eventId={sheet.event.id}
+        eventDate={sheet.event.date}
         members={sheet.members}
         recorders={sheet.recorders}
         hiddenExecs={sheet.hiddenExecs}

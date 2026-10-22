@@ -80,11 +80,15 @@ async function loadInput(db: SupabaseClient) {
         .select("member_id, date, commits, prs_merged")
         .range(f, t),
     ),
-    fetchAll<BonusRow>((f, t) =>
+    fetchAll<
+      Omit<BonusRow, "event_date"> & {
+        events: { date: string } | { date: string }[] | null;
+      }
+    >((f, t) =>
       db
         .from("bonus_points")
         .select(
-          "id, member_id, event_id, type, points, reason, awarded_at, revoked_at",
+          "id, member_id, event_id, type, points, reason, awarded_at, revoked_at, events(date)",
         )
         .range(f, t),
     ),
@@ -132,7 +136,11 @@ async function loadInput(db: SupabaseClient) {
         : [];
     }),
     github,
-    bonuses,
+    // Each bonus carries its event's date, so it scores in the meeting's month.
+    bonuses: bonuses.map<BonusRow>(({ events: ev, ...b }) => ({
+      ...b,
+      event_date: one(ev)?.date ?? null,
+    })),
     eventNames: new Map(events.map((e) => [e.id, e.name])),
     aliases: buildAliasMap(aliases),
   };

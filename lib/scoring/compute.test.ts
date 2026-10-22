@@ -1,3 +1,4 @@
+import { dayLabel } from "@/lib/format";
 import { describe, expect, it } from "vitest";
 import type { BonusRow } from "./bonus";
 import {
@@ -182,6 +183,73 @@ describe("computeScores", () => {
       snap(computeScores(input({ attendance }), NOW), "ana").components.events
         .points,
     ).toBe(15 * 7);
+  });
+
+  describe("a demo entered today for a past meeting", () => {
+    const demo = (o: Partial<BonusRow>): BonusRow => ({
+      id: "d1",
+      member_id: "ana",
+      event_id: "oct-8",
+      event_date: "2026-10-08",
+      type: "demo",
+      points: 30,
+      reason: "Demoed at Weekly Meeting (2026-10-08)",
+      awarded_at: "2026-10-22T19:05:00Z", // entered today via the week picker
+      revoked_at: null,
+      ...o,
+    });
+    const names = new Map([["oct-8", "Weekly Meeting"]]);
+
+    it("displays as the Oct 8 meeting, not the entry date", () => {
+      const line = snap(
+        computeScores(input({ bonuses: [demo({})], eventNames: names }), NOW),
+        "ana",
+      ).components.bonus.lines[0];
+      expect(line).toMatchObject({
+        label: "Demoed at Weekly Meeting",
+        date: "2026-10-08",
+        awardedAt: "2026-10-22T19:05:00Z",
+      });
+      expect(dayLabel(line.date)).toBe("Oct 8");
+    });
+
+    it("scores in the meeting's month even when entered the next month", () => {
+      // Entered Nov 3 for the Oct 29 meeting: October points, not November.
+      const nov = new Date("2026-11-03T17:00:00Z");
+      const s = computeScores(
+        input({
+          bonuses: [
+            demo({
+              event_date: "2026-10-29",
+              awarded_at: "2026-11-03T16:00:00Z",
+            }),
+          ],
+          eventNames: names,
+        }),
+        nov,
+      );
+      expect(snap(s, "ana", "2026-11").components.bonus.points).toBe(0);
+      expect(snap(s, "ana", "all").components.bonus.points).toBe(30);
+    });
+
+    it("falls back to awarded_at only for bonuses without an event", () => {
+      const s = computeScores(
+        input({
+          bonuses: [
+            demo({
+              type: "other",
+              event_id: null,
+              event_date: null,
+              awarded_at: "2026-10-22T19:05:00Z",
+            }),
+          ],
+        }),
+        NOW,
+      );
+      expect(snap(s, "ana").components.bonus.lines[0].date).toBe(
+        "2026-10-22T19:05:00Z",
+      );
+    });
   });
 
   it("counts back-filled weekly meetings in the meeting's month", () => {

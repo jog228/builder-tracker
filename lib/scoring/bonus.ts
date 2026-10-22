@@ -14,7 +14,16 @@ export type BonusRow = {
   reason: string;
   awarded_at: string;
   revoked_at: string | null;
+  /** The linked event's date ("YYYY-MM-DD"), when there is one. */
+  event_date?: string | null;
 };
+
+/**
+ * The date a bonus belongs to: its event's date (a demo entered later for a
+ * past meeting still belongs to that meeting), else when it was awarded.
+ */
+export const bonusDate = (r: Pick<BonusRow, "event_date" | "awarded_at">) =>
+  r.event_date ?? r.awarded_at;
 
 /**
  * The awards that count: not revoked, for rankable members only, and at most
@@ -47,6 +56,8 @@ export type BonusLine = {
   type: BonusType;
   label: string;
   points: number;
+  /** bonusDate(): the event's "YYYY-MM-DD", else the awarded_at timestamp. */
+  date: string;
   awardedAt: string;
 };
 
@@ -62,6 +73,7 @@ export function bonusComponent(
         ? `Demoed at ${eventNames.get(r.event_id ?? "") ?? "an event"}`
         : r.reason,
     points: r.points,
+    date: bonusDate(r),
     awardedAt: r.awarded_at,
   }));
   return { total: lines.reduce((sum, l) => sum + l.points, 0), lines };

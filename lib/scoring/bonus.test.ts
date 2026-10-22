@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bonusComponent,
+  bonusDate,
   countableBonuses,
   demoCount,
   earnsDemoDayBadge,
@@ -105,6 +106,20 @@ describe("bonusComponent", () => {
       "Helped run the workshop +200",
     ]);
     expect(lines.map((l) => l.type)).toEqual(["demo", "demo", "other"]);
+  });
+});
+
+describe("bonusDate", () => {
+  it("uses the event's date when there is one, else awarded_at", () => {
+    expect(
+      bonusDate({
+        event_date: "2026-10-08",
+        awarded_at: "2026-10-22T19:05:00Z",
+      }),
+    ).toBe("2026-10-08");
+    expect(
+      bonusDate({ event_date: null, awarded_at: "2026-10-22T19:05:00Z" }),
+    ).toBe("2026-10-22T19:05:00Z");
   });
 });
 

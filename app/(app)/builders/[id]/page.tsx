@@ -26,7 +26,7 @@ import { FlagShippedButton } from "@/components/profile/flag-button";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
 import { requireViewer } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
-import { monthLabel, shortDate } from "@/lib/format";
+import { dayLabel, monthLabel, shortDate } from "@/lib/format";
 import { monthKey } from "@/lib/scoring/time";
 import { cn } from "@/lib/utils";
 
@@ -253,8 +253,9 @@ export default async function BuilderPage({
                       {b.type === "demo"
                         ? `Demoed at ${b.eventName ?? "an event"}`
                         : b.reason}
-                      <span className="text-slate ml-2 text-sm">
-                        {shortDate(b.awardedAt)}
+                      <span className="text-slate text-sm">
+                        {" · "}
+                        {dayLabel(b.date)}
                       </span>
                     </span>
                     <span className="font-display bg-safety px-1.5 text-lg">
@@ -273,9 +274,7 @@ export default async function BuilderPage({
                 {p.events.map((e) => (
                   <li key={e.id} className="flex justify-between">
                     <span>{e.name}</span>
-                    <span className="text-slate">
-                      {shortDate(`${e.date}T12:00:00Z`)}
-                    </span>
+                    <span className="text-slate">{dayLabel(e.date)}</span>
                   </li>
                 ))}
               </ul>

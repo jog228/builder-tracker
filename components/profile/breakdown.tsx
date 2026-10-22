@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Icon } from "@/components/bs/icon";
+import { dayLabel } from "@/lib/format";
 import { COMPONENT_LABELS, type Breakdown } from "@/lib/scoring/compute";
 
 const ICONS: Record<keyof Breakdown, LucideIcon> = {
@@ -95,7 +96,10 @@ export function ScoreBreakdown({
                       icon={l.type === "demo" ? MonitorPlay : Gift}
                       className="mr-1"
                     />
-                    {l.label}{" "}
+                    {l.label}
+                    {/* Snapshots from before bonus lines carried a date fall back to awardedAt. */}
+                    {" · "}
+                    {dayLabel(l.date ?? l.awardedAt)}{" "}
                     <span className="text-ink font-bold">+{l.points}</span>
                   </li>
                 ))}

@@ -18,6 +18,18 @@ export const shortDate = (iso: string) =>
     timeZone: TIME_ZONE,
   });
 
+/**
+ * "Oct 8" for a plain date ("2026-10-08", read as that calendar day) or a
+ * timestamp (read in club time). Plain dates would otherwise parse as UTC
+ * midnight and show the previous day in Eastern time.
+ */
+export const dayLabel = (dateOrIso: string) =>
+  shortDate(
+    /^\d{4}-\d{2}-\d{2}$/.test(dateOrIso)
+      ? `${dateOrIso}T12:00:00Z`
+      : dateOrIso,
+  );
+
 export const monthLabel = (period: string) =>
   new Date(`${period}-15T12:00:00Z`).toLocaleDateString("en-US", {
     month: "long",

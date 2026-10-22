@@ -3,6 +3,7 @@
 // Monthly caps apply per month; all-time is the sum of capped months.
 import {
   bonusComponent,
+  bonusDate,
   countableBonuses,
   type BonusLine,
   type BonusRow,
@@ -273,7 +274,8 @@ export function computeScores(input: ScoringInput, now: Date): Snapshot[] {
   }
 
   for (const b of countableBonuses(input.bonuses, memberById)) {
-    tally(b.member_id, monthKey(b.awarded_at)).bonus.push(b);
+    // By the meeting's date, not when it was entered (back-filled demos).
+    tally(b.member_id, monthKey(bonusDate(b))).bonus.push(b);
   }
 
   for (const [memberId, weeks] of updateWeeks) {

@@ -1,4 +1,5 @@
 import "server-only";
+import { bonusDate } from "@/lib/scoring/bonus";
 import type { Breakdown, Streak } from "@/lib/scoring/compute";
 import type { ApprovalStatus } from "@/lib/scoring/shipped";
 import { effectiveCategory } from "@/lib/scoring/shipped";
@@ -106,10 +107,9 @@ export async function getProfile(memberId: string) {
       .eq("member_id", memberId),
     supabase
       .from("bonus_points")
-      .select("id, type, points, reason, awarded_at, events(name)")
+      .select("id, type, points, reason, awarded_at, events(name, date)")
       .eq("member_id", memberId)
-      .is("revoked_at", null)
-      .order("awarded_at", { ascending: false }),
+      .is("revoked_at", null),
   ]);
 
   const snap = (period: string, i: number): ProfileSnapshot | null => {
@@ -195,13 +195,21 @@ export async function getProfile(memberId: string) {
           !!e,
       )
       .sort((a, b) => b.date.localeCompare(a.date)),
-    bonuses: (bonuses.data ?? []).map((b) => ({
-      id: b.id,
-      type: b.type as "demo" | "other",
-      points: b.points,
-      reason: b.reason,
-      awardedAt: b.awarded_at,
-      eventName: one(b.events as { name: string }[])?.name ?? null,
-    })),
+    // Dated by their event (a demo entered later for a past meeting shows the
+    // meeting's date); only bonuses without an event use awarded_at.
+    bonuses: (bonuses.data ?? [])
+      .map((b) => {
+        const ev = one(b.events as { name: string; date: string }[]);
+        return {
+          id: b.id,
+          type: b.type as "demo" | "other",
+          points: b.points,
+          reason: b.reason,
+          awardedAt: b.awarded_at,
+          eventName: ev?.name ?? null,
+          date: bonusDate({ event_date: ev?.date, awarded_at: b.awarded_at }),
+        };
+      })
+      .sort((a, b) => b.date.localeCompare(a.date)),
   };
 }

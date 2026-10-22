@@ -16,6 +16,8 @@ import { MemberAvatar } from "@/components/bs/avatar";
 import { Icon } from "@/components/bs/icon";
 import type { CheckinTarget } from "@/lib/attendance/checkin";
 import type { SheetMember } from "@/lib/data/checkin";
+import { dayLabel } from "@/lib/format";
+import { localDate } from "@/lib/scoring/time";
 import { cn } from "@/lib/utils";
 
 type Row = Pick<SheetMember, "present" | "demo" | "recordedBy" | "recordedAt">;
@@ -70,12 +72,15 @@ export function WeekSelect({
 /** "Crew sign-in" sheet: tap to sign in, Demo for a demo, saves instantly. */
 export function CheckinSheet({
   eventId,
+  eventDate,
   members,
   recorders,
   hiddenExecs,
   demoPoints,
 }: {
   eventId: string;
+  /** The meeting's date; back-filled entries also show when they were entered. */
+  eventDate: string;
   members: SheetMember[];
   recorders: Record<string, string>;
   hiddenExecs: number;
@@ -242,7 +247,9 @@ export function CheckinSheet({
                 {r.present && r.recordedAt && (
                   <span className="text-[0.72rem] leading-tight text-[#111]/70">
                     {by ? `by ${by.split(" ")[0]} · ` : ""}
-                    {timeFmt.format(new Date(r.recordedAt))}
+                    {localDate(r.recordedAt) === eventDate
+                      ? timeFmt.format(new Date(r.recordedAt))
+                      : `entered ${dayLabel(r.recordedAt)}`}
                   </span>
                 )}
               </button>
