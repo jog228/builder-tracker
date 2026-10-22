@@ -1,5 +1,6 @@
 import "server-only";
 import { bonusDate } from "@/lib/scoring/bonus";
+import { getWeeklyMeetings } from "@/lib/data/meetings";
 import type { Breakdown, Streak } from "@/lib/scoring/compute";
 import type { ApprovalStatus } from "@/lib/scoring/shipped";
 import { effectiveCategory } from "@/lib/scoring/shipped";
@@ -57,6 +58,7 @@ export async function getProfile(memberId: string) {
     updates,
     attendance,
     bonuses,
+    meetings,
   ] = await Promise.all([
     supabase
       .from("score_snapshots")
@@ -103,13 +105,14 @@ export async function getProfile(memberId: string) {
       .limit(12),
     supabase
       .from("attendance")
-      .select("events(id, name, date, type)")
+      .select("events(id, name, date, type, weekly)")
       .eq("member_id", memberId),
     supabase
       .from("bonus_points")
       .select("id, type, points, reason, awarded_at, events(name, date)")
       .eq("member_id", memberId)
       .is("revoked_at", null),
+    getWeeklyMeetings(supabase),
   ]);
 
   const snap = (period: string, i: number): ProfileSnapshot | null => {
@@ -147,6 +150,8 @@ export async function getProfile(memberId: string) {
 
   return {
     member,
+    /** Weekly meetings, for the attendance rate (meetingsHeld()). */
+    meetings,
     month: snap(month, 0),
     all: snap("all", 1),
     badges: (catalog.data ?? []).map((b: BadgeInfo) => ({
@@ -187,12 +192,20 @@ export async function getProfile(memberId: string) {
             name: string;
             date: string;
             type: string;
+            weekly: boolean;
           }[],
         ),
       )
       .filter(
-        (e): e is { id: string; name: string; date: string; type: string } =>
-          !!e,
+        (
+          e,
+        ): e is {
+          id: string;
+          name: string;
+          date: string;
+          type: string;
+          weekly: boolean;
+        } => !!e,
       )
       .sort((a, b) => b.date.localeCompare(a.date)),
     // Dated by their event (a demo entered later for a past meeting shows the

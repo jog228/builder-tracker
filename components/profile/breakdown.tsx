@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Icon } from "@/components/bs/icon";
+import type { AttendanceRate } from "@/lib/attendance/meetings";
 import { dayLabel } from "@/lib/format";
 import { COMPONENT_LABELS, type Breakdown } from "@/lib/scoring/compute";
 
@@ -43,20 +44,27 @@ const UNITS: Record<keyof Breakdown, string> = {
 export function ScoreBreakdown({
   breakdown,
   monthly,
+  attendance,
 }: {
   breakdown: Breakdown;
   monthly: boolean;
+  /** Meetings attended ÷ held in this period; the Events row shows it as a rate. */
+  attendance: AttendanceRate;
 }) {
   const keys = Object.keys(COMPONENT_LABELS) as (keyof Breakdown)[];
   return (
     <ul className="flex flex-col gap-3.5">
       {keys.map((k) => {
         const c = breakdown[k];
-        const pct = c.cap
-          ? Math.min(100, (c.points / c.cap) * 100)
-          : c.points > 0
-            ? 100
-            : 0;
+        // Events: an attendance-rate bar. Points are unchanged (per meeting).
+        const rate = k === "events" ? attendance : null;
+        const pct = rate
+          ? (rate.pct ?? 0)
+          : c.cap
+            ? Math.min(100, (c.points / c.cap) * 100)
+            : c.points > 0
+              ? 100
+              : 0;
         return (
           <li key={k}>
             <div className="flex items-baseline justify-between gap-2">
@@ -68,8 +76,21 @@ export function ScoreBreakdown({
                 />
                 {COMPONENT_LABELS[k]}
                 <span className="text-slate ml-2 text-sm font-normal">
-                  {c.count} {UNITS[k]}
-                  {c.count === 1 ? "" : "s"}
+                  {rate ? (
+                    rate.held ? (
+                      <>
+                        · {rate.attended} of {rate.held} meeting
+                        {rate.held === 1 ? "" : "s"}
+                      </>
+                    ) : (
+                      "· No meetings yet"
+                    )
+                  ) : (
+                    <>
+                      {c.count} {UNITS[k]}
+                      {c.count === 1 ? "" : "s"}
+                    </>
+                  )}
                 </span>
               </span>
               <span className="tabular font-bold">
@@ -82,11 +103,30 @@ export function ScoreBreakdown({
                 )}
               </span>
             </div>
-            <div className="border-ink bg-concrete mt-1 h-3 overflow-hidden border-2">
+            <div className="mt-1 flex items-center gap-2">
               <div
-                className={`floors-fill h-full ${c.cap && c.points >= c.cap ? "bg-ok" : "bg-safety"}`}
-                style={{ width: `${pct}%` }}
-              />
+                className="border-ink bg-concrete h-3 flex-1 overflow-hidden border-2"
+                {...(rate && {
+                  role: "meter",
+                  "aria-label": "Attendance rate",
+                  "aria-valuemin": 0,
+                  "aria-valuemax": 100,
+                  "aria-valuenow": rate.pct ?? 0,
+                  "aria-valuetext": rate.held
+                    ? `${rate.pct}%, ${rate.attended} of ${rate.held} meetings`
+                    : "No meetings yet",
+                })}
+              >
+                <div
+                  className={`floors-fill h-full ${!rate && c.cap && c.points >= c.cap ? "bg-ok" : "bg-safety"}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {rate && rate.pct !== null && (
+                <span className="tabular w-10 text-right text-sm font-bold">
+                  {rate.pct}%
+                </span>
+              )}
             </div>
             {k === "bonus" && breakdown.bonus.lines.length > 0 && (
               <ul className="text-slate mt-2 flex flex-col gap-1 pl-6 text-sm">

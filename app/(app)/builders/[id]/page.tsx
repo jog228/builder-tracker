@@ -24,10 +24,11 @@ import { Eyebrow } from "@/components/bs/site";
 import { ScoreBreakdown } from "@/components/profile/breakdown";
 import { FlagShippedButton } from "@/components/profile/flag-button";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
+import { attendanceRate, meetingsHeld } from "@/lib/attendance/meetings";
 import { requireViewer } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
-import { monthKey } from "@/lib/scoring/time";
+import { localDate, monthKey } from "@/lib/scoring/time";
 import { cn } from "@/lib/utils";
 
 export default async function BuilderPage({
@@ -47,6 +48,14 @@ export default async function BuilderPage({
   const { member } = p;
   const excluded = member.exclude_from_rankings;
   const shown = allTime ? p.all : p.month;
+  const now = new Date();
+  const attendance = attendanceRate(
+    meetingsHeld(p.meetings, {
+      today: localDate(now),
+      month: allTime ? null : monthKey(now),
+    }),
+    p.events.filter((e) => e.weekly).map((e) => e.date),
+  );
   const streak = p.all?.breakdown.streak_weeks ?? { current: 0, longest: 0 };
 
   return (
@@ -131,6 +140,7 @@ export default async function BuilderPage({
                   <ScoreBreakdown
                     breakdown={shown.breakdown}
                     monthly={!allTime}
+                    attendance={attendance}
                   />
                   <div className="border-ink mt-4 flex items-baseline justify-between border-t-[3px] pt-3">
                     <span className="font-bold tracking-widest uppercase">
