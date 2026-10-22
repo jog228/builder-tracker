@@ -33,7 +33,7 @@ import {
   badgeMonthLabel,
   neverMissesThisMonth,
 } from "@/lib/badges/never-misses";
-import { requireViewer } from "@/lib/auth";
+import { requireReader } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
 import { BADGES, BONUS } from "@/lib/scoring/config";
@@ -51,11 +51,12 @@ export default async function BuilderPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ period?: string }>;
 }) {
-  const viewer = await requireViewer();
+  // Members, or a read-only guest (viewer null: no admin or owner controls).
+  const { viewer, db } = await requireReader();
   const { id } = await params;
   const allTime = (await searchParams).period === "all";
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const p = await getProfile(id);
+  const p = await getProfile(id, db);
   if (!p) notFound();
 
   const { member } = p;
@@ -198,7 +199,7 @@ export default async function BuilderPage({
           )}
 
           {/* Admins only, never on your own profile or an exec's. */}
-          {viewer.isAdmin && viewer.memberId !== member.id && !excluded && (
+          {viewer?.isAdmin && viewer.memberId !== member.id && !excluded && (
             <AwardPoints
               memberId={member.id}
               firstName={member.display_name.split(" ")[0]}
@@ -295,7 +296,7 @@ export default async function BuilderPage({
                           <Icon icon={Heart} label="Likes" /> {u.likes}
                         </span>
                       )}
-                      {viewer.isAdmin &&
+                      {viewer?.isAdmin &&
                         !excluded &&
                         u.category === "progress_update" &&
                         u.approval === null && (
@@ -384,7 +385,7 @@ export default async function BuilderPage({
                       </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
-                      {viewer.isAdmin && b.type === "community" && (
+                      {viewer?.isAdmin && b.type === "community" && (
                         <UndoAward bonusId={b.id} />
                       )}
                       <span className="font-display bg-safety px-1.5 text-lg">

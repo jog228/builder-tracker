@@ -157,6 +157,8 @@ describe("community points (admins only)", () => {
     ["a regular member", member(OTHER)],
     ["the profile's owner", member(OWNER)],
     ["a signed-out visitor", null],
+    // A guest has a guest cookie but no member session: getViewer() is null.
+    ["a guest (portfolio spectator)", null],
   ])(
     "award returns 403 for %s, without touching the database",
     async (_w, v) => {

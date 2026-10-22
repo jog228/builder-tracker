@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MemberAvatar } from "@/components/bs/avatar";
 import { NavLinks } from "@/components/bs/nav-links";
 import { CautionTape } from "@/components/bs/site";
-import { requireViewer } from "@/lib/auth";
+import { requireReader } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({
@@ -10,10 +10,12 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const viewer = await requireViewer();
+  // Members, or a read-only guest (viewer null). Guests only ever reach the
+  // pages in lib/access.ts GUEST_ROUTES; middleware sends them elsewhere.
+  const { viewer } = await requireReader();
 
   let pending = 0;
-  if (viewer.isAdmin) {
+  if (viewer?.isAdmin) {
     const supabase = await createClient();
     const { count } = await supabase
       .from("shipped_approvals")
@@ -22,19 +24,26 @@ export default async function AppLayout({
     pending = count ?? 0;
   }
 
-  const links = [
-    { href: "/leaderboard", label: "Leaderboard" },
-    { href: "/stats", label: "Stats" },
-    { href: "/how-it-works", label: "How it works" },
-    ...(viewer.isAdmin
-      ? [
-          { href: "/admin/checkin", label: "Check-in" },
-          { href: "/admin/shipped", label: "Permits", badge: pending },
-        ]
-      : []),
-  ];
+  const links = !viewer
+    ? [
+        { href: "/leaderboard", label: "Leaderboard" },
+        { href: "/how-it-works", label: "How it works" },
+      ]
+    : [
+        { href: "/leaderboard", label: "Leaderboard" },
+        { href: "/stats", label: "Stats" },
+        { href: "/how-it-works", label: "How it works" },
+        ...(viewer.isAdmin
+          ? [
+              { href: "/admin/checkin", label: "Check-in" },
+              { href: "/admin/shipped", label: "Permits", badge: pending },
+            ]
+          : []),
+      ];
 
-  const badgeLine = `${viewer.isAdmin ? "Foreman" : "Crew"}: ${viewer.displayName}${viewer.isExcluded ? " · exec, not ranked" : ""}`;
+  const badgeLine =
+    viewer &&
+    `${viewer.isAdmin ? "Foreman" : "Crew"}: ${viewer.displayName}${viewer.isExcluded ? " · exec, not ranked" : ""}`;
 
   return (
     <div className="min-h-dvh overflow-x-clip">
@@ -48,25 +57,41 @@ export default async function AppLayout({
             Builder Society
           </Link>
           <NavLinks links={links} />
-          <div className="flex min-w-0 items-center gap-3">
-            <Link
-              href={`/builders/${viewer.memberId}`}
-              className="text-slate hover:text-rust flex min-w-0 items-center gap-2 font-semibold uppercase"
-              title="Your profile"
+          {!viewer ? (
+            // Guests: no profile, account or admin links; just a way out.
+            <div
+              role="status"
+              className="border-ink bg-paper flex items-center gap-3 border-2 px-3 py-1.5 text-sm font-bold tracking-wider uppercase"
             >
-              <MemberAvatar
-                name={viewer.displayName}
-                url={viewer.avatarUrl}
-                size={30}
-              />
-              <span className="truncate">{badgeLine}</span>
-            </Link>
-            <form action="/auth/signout" method="post">
-              <button className="text-slate hover:text-rust min-h-11 px-1 text-sm font-bold tracking-wider whitespace-nowrap uppercase underline-offset-4 hover:underline">
-                Sign out
-              </button>
-            </form>
-          </div>
+              <span>Guest view · read-only</span>
+              <a
+                href="/auth/guest-exit"
+                className="text-rust underline-offset-4 hover:underline"
+              >
+                Exit
+              </a>
+            </div>
+          ) : (
+            <div className="flex min-w-0 items-center gap-3">
+              <Link
+                href={`/builders/${viewer.memberId}`}
+                className="text-slate hover:text-rust flex min-w-0 items-center gap-2 font-semibold uppercase"
+                title="Your profile"
+              >
+                <MemberAvatar
+                  name={viewer.displayName}
+                  url={viewer.avatarUrl}
+                  size={30}
+                />
+                <span className="truncate">{badgeLine}</span>
+              </Link>
+              <form action="/auth/signout" method="post">
+                <button className="text-slate hover:text-rust min-h-11 px-1 text-sm font-bold tracking-wider whitespace-nowrap uppercase underline-offset-4 hover:underline">
+                  Sign out
+                </button>
+              </form>
+            </div>
+          )}
         </header>
         <main className="flex-1 py-8 sm:py-10">{children}</main>
         <footer className="text-slate border-dash border-t border-dashed py-6 text-center text-sm font-semibold tracking-[0.2em] uppercase">

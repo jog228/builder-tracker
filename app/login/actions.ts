@@ -1,9 +1,12 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { findAllowedMember, normalizeEmail } from "@/lib/auth";
 import { ALLOWED_DOMAIN } from "@/lib/auth-rules";
+import { attemptGuestLogin, type GuestAttemptStore } from "@/lib/guest-login";
+import { clientIp } from "@/lib/guest-rate-limit";
+import { GUEST_COOKIE, GUEST_TTL_SECONDS } from "@/lib/guest-token";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 async function origin() {
@@ -26,49 +29,67 @@ export async function signInWithGoogle() {
   redirect(data.url);
 }
 
-export type LoginState = {
-  status: "idle" | "sent" | "error";
-  message?: string;
-};
+export type GuestState = { error: string | null };
 
-export async function sendMagicLink(
-  _prev: LoginState,
-  formData: FormData,
-): Promise<LoginState> {
-  const email = normalizeEmail(String(formData.get("email") ?? ""));
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    return {
-      status: "error",
-      message: "That doesn't look like an email address.",
-    };
-  }
-
-  // Backup login for the exec board only; members use Google.
-  const member = await findAllowedMember(email);
-  if (member?.role !== "admin") {
-    return {
-      status: "error",
-      message:
-        "Email links are only for exec board members. Use “Sign in with Google” with your Lehigh account.",
-    };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: `${await origin()}/auth/callback`,
-      shouldCreateUser: true,
+/**
+ * Attempts table for the guest password's rate limit. Service role: it's a
+ * security log nobody else may read or write (RLS on, no policies).
+ */
+function attemptStore(): GuestAttemptStore {
+  const db = createAdminClient();
+  return {
+    async failures(keyHash, since) {
+      const base = () =>
+        db
+          .from("guest_login_attempts")
+          .select("id", { count: "exact", head: true })
+          .eq("ok", false)
+          .gte("at", since.toISOString());
+      const [ip, all] = await Promise.all([
+        base().eq("key_hash", keyHash),
+        base(),
+      ]);
+      if (ip.error) throw ip.error;
+      if (all.error) throw all.error;
+      return { ip: ip.count ?? 0, global: all.count ?? 0 };
     },
+    async record(keyHash, ok) {
+      const { error } = await db
+        .from("guest_login_attempts")
+        .insert({ key_hash: keyHash, ok });
+      if (error) throw error;
+      // Keep the table small: a day of history is plenty for a 15-min window.
+      await db
+        .from("guest_login_attempts")
+        .delete()
+        .lt("at", new Date(Date.now() - 86_400_000).toISOString());
+    },
+  };
+}
+
+/**
+ * Guest (portfolio) entry: checks PORTFOLIO_PASSWORD on the server, rate
+ * limited, then sets a signed, httpOnly guest cookie for about 7 days.
+ */
+export async function enterAsGuest(
+  _prev: GuestState,
+  formData: FormData,
+): Promise<GuestState> {
+  const password = String(formData.get("password") ?? "").slice(0, 200);
+  const result = await attemptGuestLogin(
+    password,
+    clientIp(await headers()),
+    attemptStore(),
+  );
+  if (!result.ok) return { error: result.error };
+
+  (await cookies()).set(GUEST_COOKIE, result.token, {
+    httpOnly: true,
+    // Secure in production (HTTPS). Local dev runs on plain http.
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: GUEST_TTL_SECONDS,
   });
-  if (error) {
-    return {
-      status: "error",
-      message:
-        error.status === 429
-          ? "Too many login emails were sent recently. Try again in a few minutes."
-          : `Couldn't send the link: ${error.message}`,
-    };
-  }
-  return { status: "sent" };
+  redirect("/leaderboard");
 }

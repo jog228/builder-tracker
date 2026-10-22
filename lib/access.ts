@@ -5,13 +5,17 @@
 // - member: any signed-in member
 // - admin: everything else, including any page added later. To open a new
 //   page to members, add it to MEMBER_ROUTES (and its test).
+//
+// Guests (portfolio spectators with a valid guest cookie, no Supabase user)
+// may only view GUEST_ROUTES, a subset of the member routes; anything else
+// sends them to the leaderboard. A signed-in member is never a guest.
 
 export type Access = "public" | "member" | "admin";
 
 const PUBLIC_ROUTES: RegExp[] = [
   /^\/login$/,
   /^\/not-a-member$/,
-  /^\/auth\/(callback|confirm|denied|signout)$/,
+  /^\/auth\/(callback|confirm|denied|signout|guest-exit)$/,
   /^\/api\/cron\/[a-z-]+$/,
 ];
 
@@ -23,15 +27,29 @@ const MEMBER_ROUTES: RegExp[] = [
   /^\/builders\/[0-9a-f-]{36}$/, // profiles linked from the leaderboard
 ];
 
+/** Read-only pages guests may view (each also in MEMBER_ROUTES). */
+const GUEST_ROUTES: RegExp[] = [
+  /^\/$/,
+  /^\/leaderboard$/,
+  /^\/how-it-works$/,
+  /^\/builders\/[0-9a-f-]{36}$/,
+];
+
 /** Where non-admins land when they hit an admin route. */
 export const MEMBER_HOME = "/leaderboard";
 
+// Next serves "/stats/" as "/stats"; normalize so a slash can't sneak past.
+const normalize = (pathname: string) =>
+  pathname.length > 1 && pathname.endsWith("/")
+    ? pathname.replace(/\/+$/, "")
+    : pathname;
+
+/** True for the read-only pages a guest may view. */
+export const guestAllowed = (pathname: string) =>
+  GUEST_ROUTES.some((re) => re.test(normalize(pathname)));
+
 export function routeAccess(pathname: string): Access {
-  // Next serves "/stats/" as "/stats"; normalize so a slash can't sneak past.
-  const path =
-    pathname.length > 1 && pathname.endsWith("/")
-      ? pathname.replace(/\/+$/, "")
-      : pathname;
+  const path = normalize(pathname);
   if (PUBLIC_ROUTES.some((re) => re.test(path))) return "public";
   if (MEMBER_ROUTES.some((re) => re.test(path))) return "member";
   return "admin";
@@ -42,15 +60,21 @@ export type RouteDecision =
 
 /**
  * What middleware does with a request. "isAdmin" is null when the session has
- * no linked member row; pages then send them through /auth/denied.
+ * no linked member row; pages then send them through /auth/denied. `guest`
+ * is a valid guest cookie (only consulted when not signed in).
  */
 export function routeDecision(
   pathname: string,
-  session: { signedIn: boolean; isAdmin: boolean | null },
+  session: { signedIn: boolean; isAdmin: boolean | null; guest?: boolean },
 ): RouteDecision {
   const access = routeAccess(pathname);
   if (access === "public") return { action: "next" };
-  if (!session.signedIn) return { action: "redirect", to: "/login" };
+  if (!session.signedIn) {
+    if (!session.guest) return { action: "redirect", to: "/login" };
+    return guestAllowed(pathname)
+      ? { action: "next" }
+      : { action: "redirect", to: MEMBER_HOME };
+  }
   if (access === "admin" && !session.isAdmin)
     return { action: "redirect", to: MEMBER_HOME };
   return { action: "next" };

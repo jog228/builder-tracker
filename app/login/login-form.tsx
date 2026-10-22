@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { signInWithGoogle, sendMagicLink, type LoginState } from "./actions";
+import { enterAsGuest, signInWithGoogle, type GuestState } from "./actions";
 
 export function GoogleButton() {
   return (
@@ -50,49 +50,40 @@ function GoogleG() {
   );
 }
 
-/** Backup magic link, exec board only. */
-export function LoginForm() {
-  const [state, action, pending] = useActionState<LoginState, FormData>(
-    sendMagicLink,
-    { status: "idle" },
+/** Guest (portfolio) entry: the password is checked on the server only. */
+export function GuestEntry() {
+  const [state, action, pending] = useActionState<GuestState, FormData>(
+    enterAsGuest,
+    { error: null },
   );
-
-  if (state.status === "sent") {
-    return (
-      <div className="border-ok text-ok border-[3px] p-4">
-        <p className="font-bold tracking-wider uppercase">Check your inbox</p>
-        <p className="text-ink mt-1">
-          We sent you a login link. Open it in this browser to sign in.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <form action={action} className="flex flex-col gap-3">
       <label
-        htmlFor="email"
+        htmlFor="guest-password"
         className="text-sm font-bold tracking-widest uppercase"
       >
-        Exec board email
+        Guest password
       </label>
       <input
-        id="email"
-        name="email"
-        type="email"
+        id="guest-password"
+        name="password"
+        type="password"
         required
-        autoComplete="email"
-        placeholder="you@lehigh.edu"
-        className="border-ink placeholder:text-slate h-12 border-2 bg-white px-3 text-lg"
+        autoComplete="current-password"
+        aria-invalid={!!state.error}
+        aria-describedby={state.error ? "guest-error" : undefined}
+        className="border-ink h-12 border-2 bg-white px-3 text-lg"
       />
       <button
         disabled={pending}
         className="border-ink hover:bg-concrete h-12 border-2 font-bold tracking-[0.08em] uppercase transition disabled:opacity-60"
       >
-        {pending ? "Sending…" : "Email me a login link"}
+        {pending ? "Checking…" : "Enter"}
       </button>
-      {state.status === "error" && (
-        <p className="text-bad font-semibold">{state.message}</p>
+      {state.error && (
+        <p id="guest-error" role="alert" className="text-bad font-semibold">
+          {state.error}
+        </p>
       )}
     </form>
   );

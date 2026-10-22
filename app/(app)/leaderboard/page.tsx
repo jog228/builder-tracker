@@ -4,7 +4,7 @@ import { EmptyState, toggleClass } from "@/components/bs/bits";
 import { Eyebrow, PageTitle } from "@/components/bs/site";
 import { CraneSign } from "@/components/leaderboard/crane-sign";
 import { RankedList } from "@/components/leaderboard/ranked-list";
-import { requireViewer } from "@/lib/auth";
+import { requireReader } from "@/lib/auth";
 import { getLeaderboard, type Period } from "@/lib/data/leaderboard";
 import { monthLabel, plural, timeAgo } from "@/lib/format";
 
@@ -15,11 +15,12 @@ export default async function LeaderboardPage({
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
-  const viewer = await requireViewer();
+  // Members, or a read-only guest (viewer null).
+  const { viewer, db } = await requireReader();
   const period: Period =
     (await searchParams).period === "all" ? "all" : "month";
-  const { rows, updatedAt, periodKey } = await getLeaderboard(period);
-  const me = rows.find((r) => r.memberId === viewer.memberId);
+  const { rows, updatedAt, periodKey } = await getLeaderboard(period, db);
+  const me = viewer && rows.find((r) => r.memberId === viewer.memberId);
 
   return (
     <div className="flex flex-col gap-8 sm:gap-10">
@@ -59,7 +60,7 @@ export default async function LeaderboardPage({
         )}
       </section>
 
-      {viewer.isExcluded && (
+      {viewer?.isExcluded && (
         <div className="bg-paper border-ink border-[3px] border-l-[12px] px-4 py-3">
           You&apos;re on the exec board, so you&apos;re not ranked. Your posts
           still sync, but they never count toward scores.
@@ -83,7 +84,7 @@ export default async function LeaderboardPage({
             </p>
           )}
 
-          <RankedList rows={rows} viewerId={viewer.memberId} />
+          <RankedList rows={rows} viewerId={viewer?.memberId ?? null} />
         </>
       )}
     </div>

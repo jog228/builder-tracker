@@ -1,7 +1,12 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { MEMBER_HOME, routeAccess, routeDecision } from "./access";
+import {
+  MEMBER_HOME,
+  guestAllowed,
+  routeAccess,
+  routeDecision,
+} from "./access";
 
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
@@ -60,6 +65,58 @@ describe("routeAccess allowlist", () => {
       "/Leaderboard",
     ])
       expect(routeAccess(p), p).toBe("admin");
+  });
+});
+
+describe("guests (portfolio spectators)", () => {
+  const guest = { signedIn: false, isAdmin: null, guest: true };
+
+  it("can view the leaderboard, profiles and how-it-works", () => {
+    for (const p of ["/", "/leaderboard", "/how-it-works", `/builders/${ID}`])
+      expect(routeDecision(p, guest), p).toEqual({ action: "next" });
+  });
+
+  it("are sent to the leaderboard from every other page, admin or member", () => {
+    for (const p of [
+      "/stats",
+      "/admin/checkin",
+      "/admin/shipped",
+      "/admin/anything",
+      "/some-future-page",
+      `/builders/${ID}/edit`,
+    ])
+      expect(routeDecision(p, guest), p).toEqual({
+        action: "redirect",
+        to: MEMBER_HOME,
+      });
+  });
+
+  it("still reach the public pages (login, exit)", () => {
+    for (const p of ["/login", "/auth/guest-exit"])
+      expect(routeDecision(p, guest)).toEqual({ action: "next" });
+  });
+
+  it("never outrank a signed-in member: the member rules apply", () => {
+    expect(
+      routeDecision("/stats", { signedIn: true, isAdmin: false, guest: true }),
+    ).toEqual({ action: "next" });
+    expect(
+      routeDecision("/admin/checkin", {
+        signedIn: true,
+        isAdmin: false,
+        guest: true,
+      }),
+    ).toEqual({ action: "redirect", to: MEMBER_HOME });
+  });
+
+  it("without a valid cookie are just logged out", () => {
+    expect(
+      routeDecision("/leaderboard", {
+        signedIn: false,
+        isAdmin: null,
+        guest: false,
+      }),
+    ).toEqual({ action: "redirect", to: "/login" });
   });
 });
 
@@ -136,10 +193,15 @@ describe("app/ inventory", () => {
       const src = readFileSync(file, "utf8");
       const access = routeAccess(url);
       if (access === "admin") expect(src, file).toMatch(/\brequireAdmin\(\)/);
-      if (access === "member")
+      if (access === "member" && guestAllowed(url))
+        // Guest-visible pages read as a member or a read-only guest.
         expect(src, file).toMatch(
-          /\brequire(Viewer|Admin)\(\)|redirect\("\/leaderboard"\)/,
+          /\brequireReader\(\)|redirect\("\/leaderboard"\)/,
         );
+      if (access === "member" && !guestAllowed(url)) {
+        expect(src, file).toMatch(/\brequire(Viewer|Admin)\(\)/);
+        expect(src, file).not.toMatch(/\brequireReader\(\)/);
+      }
     },
   );
 

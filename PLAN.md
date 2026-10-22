@@ -203,6 +203,10 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 - Stored as `bonus_points` type `community` (awarded_by, reason, date). Admin-only at every layer: RLS ("admins award" as themselves), `checkCommunityAward()` in the server action (403 otherwise), and a check constraint (5 or 10 only). Exec members can't receive them (existing trigger). Undo is a soft revoke recording who.
 - Shown in the Bonus Points card and the breakdown as "Instagram feature +5 · Oct 22 · by Jolie". Scores recompute after each award or undo.
 
+### Guest (portfolio) view ✅
+- `/login` offers "Viewing as a guest? Enter password" (replacing the exec email link, which no exec relied on). `PORTFOLIO_PASSWORD` is checked on the server only, rate-limited (5 failures per IP and 30 overall per 15 minutes, `guest_login_attempts`, IPs hashed), and a correct password sets a signed, httpOnly cookie for about 7 days.
+- Guests are spectators: no Supabase user, member row or ranking. They see real data on the leaderboard, profiles and /how-it-works only, read through a select-only wrapper. Nav shows Leaderboard and How it works, plus a "Guest view · read-only · Exit" banner. Every write is blocked: hidden in the UI, 403 in server actions (no member session), and the anonymous role can't read or write anything in the database.
+
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)
 - Project aliases (on `/admin/members/[id]`): list each member's project names with message counts, and merge variants into one canonical name (writes `project_aliases`). Shipped counting and the classifier's known-projects context pick up aliases automatically.

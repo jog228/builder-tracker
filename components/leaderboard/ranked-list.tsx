@@ -31,7 +31,8 @@ export function RankedList({
   viewerId,
 }: {
   rows: LeaderboardRow[];
-  viewerId: string;
+  /** null for a guest (no "YOU" row). */
+  viewerId: string | null;
 }) {
   const reduce = useReducedMotion();
   const [query, setQuery] = useState("");

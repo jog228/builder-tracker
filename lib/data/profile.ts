@@ -9,7 +9,7 @@ import type { ApprovalStatus } from "@/lib/scoring/shipped";
 import { effectiveCategory } from "@/lib/scoring/shipped";
 import { monthKey } from "@/lib/scoring/time";
 import { fetchAll, one } from "@/lib/supabase/fetch-all";
-import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BadgeInfo } from "./leaderboard";
 
 export type ProfileSnapshot = {
@@ -43,8 +43,11 @@ const HEATMAP_WEEKS = 18;
 /** Badges with a rule that awards them; the rest show "coming soon". */
 const LIVE_BADGES = new Set<string>([BADGES.neverMisses.slug]);
 
-export async function getProfile(memberId: string) {
-  const supabase = await createClient();
+/**
+ * `supabase` is the reader's client: a member's own session (RLS), or the
+ * guest read-only client (requireReader()).
+ */
+export async function getProfile(memberId: string, supabase: SupabaseClient) {
   const { data: member } = await supabase
     .from("members")
     .select(

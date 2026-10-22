@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { routeDecision, routeAccess } from "@/lib/access";
+import { GUEST_COOKIE, verifyGuestToken } from "@/lib/guest-token";
 
 /**
  * Refreshes the Supabase session cookie and enforces lib/access.ts: logged-out
@@ -49,7 +50,12 @@ export async function updateSession(request: NextRequest) {
     isAdmin = data ? data.role === "admin" : null;
   }
 
-  const decision = routeDecision(path, { signedIn: !!user, isAdmin });
+  // Guests (portfolio): a signed, unexpired cookie, checked only when nobody
+  // is signed in. A member's session always wins.
+  const guest =
+    !user && (await verifyGuestToken(request.cookies.get(GUEST_COOKIE)?.value));
+
+  const decision = routeDecision(path, { signedIn: !!user, isAdmin, guest });
   if (decision.action === "redirect") {
     const url = request.nextUrl.clone();
     url.pathname = decision.to;

@@ -1,5 +1,6 @@
 import "server-only";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import {
@@ -8,7 +9,9 @@ import {
   loginMethod,
   type Denial,
 } from "@/lib/auth-rules";
+import { GUEST_COOKIE, verifyGuestToken } from "@/lib/guest-token";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { guestReadClient } from "@/lib/supabase/guest-read";
 import { createClient } from "@/lib/supabase/server";
 
 export type Viewer = {
@@ -119,6 +122,30 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     isExcluded: data.exclude_from_rankings,
   };
 });
+
+/** True when the request carries a valid guest (portfolio) cookie. */
+export async function isGuest(): Promise<boolean> {
+  const jar = await cookies();
+  return verifyGuestToken(jar.get(GUEST_COOKIE)?.value);
+}
+
+export type Reader =
+  | { kind: "member"; viewer: Viewer; db: SupabaseClient }
+  | { kind: "guest"; viewer: null; db: SupabaseClient };
+
+/**
+ * For the pages guests may also see (leaderboard, profiles, how-it-works):
+ * a signed-in member reads with their own session (RLS); a guest reads with
+ * the read-only client (select on a fixed list of tables, nothing else).
+ * A member's session always wins over a stray guest cookie.
+ */
+export async function requireReader(): Promise<Reader> {
+  const viewer = await getViewer();
+  if (viewer) return { kind: "member", viewer, db: await createClient() };
+  if (await isGuest())
+    return { kind: "guest", viewer: null, db: guestReadClient() };
+  redirect("/auth/denied");
+}
 
 export async function requireViewer(): Promise<Viewer> {
   const viewer = await getViewer();

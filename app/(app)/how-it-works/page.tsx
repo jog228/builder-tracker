@@ -19,7 +19,7 @@ import { Card, SectionTitle } from "@/components/bs/bits";
 import { Icon } from "@/components/bs/icon";
 import { Eyebrow, PageTitle, Stamp } from "@/components/bs/site";
 import { meetingTimeLabel } from "@/lib/attendance/weeks";
-import { requireViewer } from "@/lib/auth";
+import { requireReader } from "@/lib/auth";
 import {
   BADGES,
   BONUS,
@@ -146,7 +146,7 @@ const cappedMax = RULES.filter((r) => !r.soon && r.cap !== null).reduce(
 );
 
 export default async function HowItWorksPage() {
-  await requireViewer();
+  await requireReader(); // members, or a read-only guest
 
   return (
     <div className="flex flex-col gap-8">

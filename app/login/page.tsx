@@ -1,5 +1,5 @@
 import { CautionTape, Eyebrow } from "@/components/bs/site";
-import { GoogleButton, LoginForm } from "./login-form";
+import { GoogleButton, GuestEntry } from "./login-form";
 
 export const metadata = { title: "Log in · Builder Society" };
 
@@ -46,10 +46,10 @@ export default async function LoginPage({
             <GoogleButton />
             <details className="group border-dash mt-6 border-t border-dashed pt-4">
               <summary className="text-slate hover:text-rust cursor-pointer text-sm font-bold tracking-widest uppercase select-none">
-                Exec board: email me a link instead
+                Viewing as a guest? Enter password
               </summary>
               <div className="mt-4">
-                <LoginForm />
+                <GuestEntry />
               </div>
             </details>
           </div>

@@ -2,7 +2,7 @@ import "server-only";
 import type { Breakdown, Streak } from "@/lib/scoring/compute";
 import { monthKey } from "@/lib/scoring/time";
 import { fetchAll, one } from "@/lib/supabase/fetch-all";
-import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type Period = "month" | "all";
 export const periodKey = (p: Period) =>
@@ -40,8 +40,9 @@ type SnapshotRow = {
 };
 
 /** Earned badges per member, each badge once (lib/badges/award.ts). */
-export async function getEarnedBadges(): Promise<Map<string, BadgeInfo[]>> {
-  const supabase = await createClient();
+export async function getEarnedBadges(
+  supabase: SupabaseClient,
+): Promise<Map<string, BadgeInfo[]>> {
   const rows = await fetchAll<{
     member_id: string;
     badges: BadgeInfo | BadgeInfo[];
@@ -62,8 +63,11 @@ export async function getEarnedBadges(): Promise<Map<string, BadgeInfo[]>> {
   return byMember;
 }
 
-export async function getLeaderboard(period: Period) {
-  const supabase = await createClient();
+/**
+ * `supabase` is the reader's client: a member's own session (RLS), or the
+ * guest read-only client (requireReader()).
+ */
+export async function getLeaderboard(period: Period, supabase: SupabaseClient) {
   const [snapshots, badges] = await Promise.all([
     fetchAll<SnapshotRow>((f, t) =>
       supabase
@@ -75,7 +79,7 @@ export async function getLeaderboard(period: Period) {
         .order("rank")
         .range(f, t),
     ),
-    getEarnedBadges(),
+    getEarnedBadges(supabase),
   ]);
 
   const rows: LeaderboardRow[] = snapshots.map((s) => {
