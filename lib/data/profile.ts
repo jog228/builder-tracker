@@ -1,5 +1,6 @@
 import "server-only";
 import { bonusDate, type BonusType } from "@/lib/scoring/bonus";
+import type { RankedEntry } from "@/lib/scoring/standing";
 import { countsForStreak, isUpdate, updatePoints } from "@/lib/scoring/updates";
 import { getWeeklyMeetings } from "@/lib/data/meetings";
 import { BADGES } from "@/lib/scoring/config";
@@ -30,7 +31,7 @@ export type RecentUpdate = {
   rawCategory: string;
   approval: ApprovalStatus | null;
   substance: number;
-  /** Nominal points (updatePoints()): before caps / once-per-project. */
+  /** Nominal points (updatePoints()); shipped counts once per project. */
   points: number;
   /** Whether it keeps its week's streak alive; null for non-update posts. */
   streak: boolean | null;
@@ -47,6 +48,24 @@ const LIVE_BADGES = new Set<string>([BADGES.neverMisses.slug]);
  * `supabase` is the reader's client: a member's own session (RLS), or the
  * guest read-only client (requireReader()).
  */
+function ranking(
+  rows: {
+    member_id: string;
+    period: string;
+    total: number;
+    members: { display_name: string } | { display_name: string }[];
+  }[],
+  period: string,
+): RankedEntry[] {
+  return rows
+    .filter((r) => r.period === period)
+    .map((r) => ({
+      memberId: r.member_id,
+      name: one(r.members)?.display_name ?? "Unknown",
+      total: Number(r.total),
+    }));
+}
+
 export async function getProfile(memberId: string, supabase: SupabaseClient) {
   const { data: member } = await supabase
     .from("members")
@@ -72,6 +91,7 @@ export async function getProfile(memberId: string, supabase: SupabaseClient) {
     attendance,
     bonuses,
     meetings,
+    rankingRows,
     summary,
   ] = await Promise.all([
     supabase
@@ -129,6 +149,19 @@ export async function getProfile(memberId: string, supabase: SupabaseClient) {
       .eq("member_id", memberId)
       .is("revoked_at", null),
     getWeeklyMeetings(supabase),
+    // This month's and all-time totals, for "X pts to pass [name]".
+    fetchAll<{
+      member_id: string;
+      period: string;
+      total: number;
+      members: { display_name: string } | { display_name: string }[];
+    }>((f, t) =>
+      supabase
+        .from("score_snapshots")
+        .select("member_id, period, total, members(display_name)")
+        .in("period", [month, "all"])
+        .range(f, t),
+    ),
     supabase
       .from("member_summaries")
       .select(
@@ -177,6 +210,11 @@ export async function getProfile(memberId: string, supabase: SupabaseClient) {
     member,
     /** Weekly meetings, for the attendance rate (meetingsHeld()). */
     meetings,
+    /** Each period's totals, for standing() ("X pts to pass [name]"). */
+    rankings: {
+      month: ranking(rankingRows, month),
+      all: ranking(rankingRows, "all"),
+    },
     /** "Now Building" row (generated summary + any admin override), or null. */
     summary: summary.data
       ? ({

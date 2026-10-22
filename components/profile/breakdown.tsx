@@ -41,14 +41,15 @@ const UNITS: Record<keyof Breakdown, string> = {
   bonus: "award",
 };
 
-/** Why someone ranks where they do: every component, its count, points and cap. */
+/**
+ * Why someone ranks where they do: every component, its count and points.
+ * Nothing is capped. Only Events has a bar: its attendance rate.
+ */
 export function ScoreBreakdown({
   breakdown,
-  monthly,
   attendance,
 }: {
   breakdown: Breakdown;
-  monthly: boolean;
   /** Meetings attended ÷ held in this period; the Events row shows it as a rate. */
   attendance: AttendanceRate;
 }) {
@@ -59,13 +60,6 @@ export function ScoreBreakdown({
         const c = breakdown[k];
         // Events: an attendance-rate bar. Points are unchanged (per meeting).
         const rate = k === "events" ? attendance : null;
-        const pct = rate
-          ? (rate.pct ?? 0)
-          : c.cap
-            ? Math.min(100, (c.points / c.cap) * 100)
-            : c.points > 0
-              ? 100
-              : 0;
         return (
           <li key={k}>
             <div className="flex items-baseline justify-between gap-2">
@@ -94,41 +88,35 @@ export function ScoreBreakdown({
                   )}
                 </span>
               </span>
-              <span className="tabular font-bold">
-                {c.points}
-                {monthly && c.cap !== null && (
-                  <span className="text-slate text-sm font-normal">
-                    {" "}
-                    / {c.cap}
+              <span className="tabular font-bold">{c.points}</span>
+            </div>
+            {rate && (
+              <div className="mt-1 flex items-center gap-2">
+                <div
+                  className="border-ink bg-concrete h-3 flex-1 overflow-hidden border-2"
+                  role="meter"
+                  aria-label="Attendance rate"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={rate.pct ?? 0}
+                  aria-valuetext={
+                    rate.held
+                      ? `${rate.pct}%, ${rate.attended} of ${rate.held} meetings`
+                      : "No meetings yet"
+                  }
+                >
+                  <div
+                    className="floors-fill bg-safety h-full"
+                    style={{ width: `${rate.pct ?? 0}%` }}
+                  />
+                </div>
+                {rate.pct !== null && (
+                  <span className="tabular w-10 text-right text-sm font-bold">
+                    {rate.pct}%
                   </span>
                 )}
-              </span>
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              <div
-                className="border-ink bg-concrete h-3 flex-1 overflow-hidden border-2"
-                {...(rate && {
-                  role: "meter",
-                  "aria-label": "Attendance rate",
-                  "aria-valuemin": 0,
-                  "aria-valuemax": 100,
-                  "aria-valuenow": rate.pct ?? 0,
-                  "aria-valuetext": rate.held
-                    ? `${rate.pct}%, ${rate.attended} of ${rate.held} meetings`
-                    : "No meetings yet",
-                })}
-              >
-                <div
-                  className={`floors-fill h-full ${!rate && c.cap && c.points >= c.cap ? "bg-ok" : "bg-safety"}`}
-                  style={{ width: `${pct}%` }}
-                />
               </div>
-              {rate && rate.pct !== null && (
-                <span className="tabular w-10 text-right text-sm font-bold">
-                  {rate.pct}%
-                </span>
-              )}
-            </div>
+            )}
             {k === "bonus" && breakdown.bonus.lines.length > 0 && (
               <ul className="text-slate mt-2 flex flex-col gap-1 pl-6 text-sm">
                 {breakdown.bonus.lines.map((l, i) => (

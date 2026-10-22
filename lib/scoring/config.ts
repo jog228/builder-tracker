@@ -8,26 +8,26 @@
 export const UPDATE_MIN_SUBSTANCE = 1;
 export const STREAK_MIN_SUBSTANCE = 2;
 
-/** Points per item and monthly cap (null = uncapped). */
+/** Points per item. Nothing is capped: every item counts in full. */
 export const WEIGHTS = {
   /** progress_update (or an unapproved shipped candidate) with substance ≥ minSubstance. */
-  progressUpdate: { points: 10, cap: 80, minSubstance: UPDATE_MIN_SUBSTANCE },
+  progressUpdate: { points: 10, minSubstance: UPDATE_MIN_SUBSTANCE },
   /** Exec-approved shipped post, once per member per project. */
-  shipped: { points: 25, cap: 75 },
-  helpGiven: { points: 5, cap: 25 },
+  shipped: { points: 25 },
+  helpGiven: { points: 5 },
   /** Likes received on progress/shipped posts (self-likes don't count). */
-  likesReceived: { points: 1, cap: 30 },
+  likesReceived: { points: 1 },
   /** Per event attended, multiplied by the event's weight. */
-  eventAttended: { points: 15, cap: null },
-  githubActiveDay: { points: 3, cap: 60 },
-  githubMergedPr: { points: 5, cap: 40 },
+  eventAttended: { points: 15 },
+  githubActiveDay: { points: 3 },
+  githubMergedPr: { points: 5 },
   /**
    * Each week with a streak update whose previous week also had one. A
    * "streak update" is a progress or shipped post with substance ≥
    * minSubstance; the same rule drives the streak shown on profiles and the
    * leaderboard and (Phase 6) the streak badge. See countsForStreak().
    */
-  streakWeek: { points: 5, cap: 30, minSubstance: STREAK_MIN_SUBSTANCE },
+  streakWeek: { points: 5, minSubstance: STREAK_MIN_SUBSTANCE },
 } as const;
 
 export const BONUS = {

@@ -53,7 +53,6 @@ type Rule = {
   icon: LucideIcon;
   what: string;
   points: string;
-  cap: number | null;
   how: string;
   soon?: boolean;
 };
@@ -63,70 +62,60 @@ const RULES: Rule[] = [
     icon: TrendingUp,
     what: "Progress update",
     points: `${WEIGHTS.progressUpdate.points} each`,
-    cap: WEIGHTS.progressUpdate.cap,
     how: `A GroupMe post about what you're building. Claude rates each post 0–3 for substance; any real update (${UPDATE_MIN_SUBSTANCE}+, “${SUBSTANCE[UPDATE_MIN_SUBSTANCE]}”) earns points. Chatter (0) doesn't.`,
   },
   {
     icon: Rocket,
     what: "Shipped",
     points: `${WEIGHTS.shipped.points} each`,
-    cap: WEIGHTS.shipped.cap,
     how: "A launch: something real people can use. Needs an approved permit (below), and counts once per project.",
   },
   {
     icon: Handshake,
     what: "Helping others",
     points: `${WEIGHTS.helpGiven.points} each`,
-    cap: WEIGHTS.helpGiven.cap,
     how: "Answering a question, unblocking someone, or sharing a useful article, link or tool, in any channel.",
   },
   {
     icon: Heart,
     what: "Likes received",
     points: `${WEIGHTS.likesReceived.points} each`,
-    cap: WEIGHTS.likesReceived.cap,
     how: "Likes on your progress and shipped posts. Liking your own post doesn't count.",
   },
   {
     icon: Flame,
     what: "Streak",
     points: `+${WEIGHTS.streakWeek.points} per week`,
-    cap: WEIGHTS.streakWeek.cap,
     how: `Post a detailed update (substance ${STREAK_MIN_SUBSTANCE}+, “${SUBSTANCE[STREAK_MIN_SUBSTANCE]}”: what you built, results, what's next) in back-to-back weeks. Each week that continues a streak adds a bonus. Your profile marks every update “Streak week” or “Too light for streak”.`,
   },
   {
     icon: CalendarCheck,
     what: "Weekly meeting",
     points: `${WEIGHTS.eventAttended.points * WEEKLY_MEETING.weight} each`,
-    cap: WEIGHTS.eventAttended.cap,
     how: `Show up ${WEEKDAYS[WEEKLY_MEETING.weekday]}s at ${meetingTimeLabel()}. An exec signs you in at the door.`,
   },
   {
     icon: MonitorPlay,
     what: "Demo",
     points: `+${BONUS.demoPoints}`,
-    cap: null,
     how: "Show what you built at a meeting. It also counts as attending.",
   },
   {
     icon: HandHeart,
     what: "Community help",
     points: BONUS.community.amounts.map((n) => `+${n}`).join(" or "),
-    cap: null,
     how: `Community help: ${BONUS.community.amounts.map((n) => `+${n}`).join(" or ")} for small tasks like Instagram features. An exec awards it from your profile, with the reason shown there.`,
   },
   {
     icon: Gift,
     what: "Other bonus",
     points: "varies",
-    cap: null,
     how: "Exec-awarded for things like helping run a workshop, always with a reason on your profile.",
   },
   {
     icon: Code,
     what: "GitHub active day",
     points: `${WEIGHTS.githubActiveDay.points} per day`,
-    cap: WEIGHTS.githubActiveDay.cap,
     how: "A day with commits to a linked GitHub account.",
     soon: !GITHUB.enabled,
   },
@@ -134,16 +123,10 @@ const RULES: Rule[] = [
     icon: GitMerge,
     what: "GitHub merged PR",
     points: `${WEIGHTS.githubMergedPr.points} each`,
-    cap: WEIGHTS.githubMergedPr.cap,
     how: "A pull request merged on a linked GitHub account.",
     soon: !GITHUB.enabled,
   },
 ];
-
-const cappedMax = RULES.filter((r) => !r.soon && r.cap !== null).reduce(
-  (sum, r) => sum + (r.cap ?? 0),
-  0,
-);
 
 export default async function HowItWorksPage() {
   await requireReader(); // members, or a read-only guest
@@ -165,21 +148,20 @@ export default async function HowItWorksPage() {
       </div>
 
       <section className="bg-paper border-ink border-[3px] p-4 sm:p-6">
-        <SectionTitle hint="per month">What earns points</SectionTitle>
+        <SectionTitle>What earns points</SectionTitle>
         <div
           aria-hidden="true"
-          className="border-ink hidden grid-cols-[minmax(0,14rem)_8rem_6rem_minmax(0,1fr)] gap-4 border-b-[3px] py-2 text-[0.8rem] font-bold tracking-widest uppercase sm:grid"
+          className="border-ink hidden grid-cols-[minmax(0,14rem)_8rem_minmax(0,1fr)] gap-4 border-b-[3px] py-2 text-[0.8rem] font-bold tracking-widest uppercase sm:grid"
         >
           <span>Work</span>
           <span>Points</span>
-          <span>Cap</span>
           <span>How it counts</span>
         </div>
         <ul>
           {RULES.map((r) => (
             <li
               key={r.what}
-              className="border-rule grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 border-b py-3 sm:grid-cols-[minmax(0,14rem)_8rem_6rem_minmax(0,1fr)] sm:items-baseline sm:gap-4"
+              className="border-rule grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 border-b py-3 sm:grid-cols-[minmax(0,14rem)_8rem_minmax(0,1fr)] sm:items-baseline sm:gap-4"
             >
               <span className="flex items-center gap-2 text-lg font-bold">
                 <Icon icon={r.icon} tone={r.soon ? "ink" : "accent"} />
@@ -187,9 +169,6 @@ export default async function HowItWorksPage() {
               </span>
               <span className="font-display text-right text-xl sm:text-left">
                 {r.points}
-              </span>
-              <span className="text-slate col-span-2 text-sm font-bold tracking-wider uppercase sm:col-span-1 sm:text-base">
-                {r.cap === null ? "No cap" : `Cap ${r.cap}`}
               </span>
               <span className="col-span-2 leading-snug sm:col-span-1">
                 {r.soon && (
@@ -202,11 +181,6 @@ export default async function HowItWorksPage() {
             </li>
           ))}
         </ul>
-        <p className="text-slate mt-4">
-          Caps keep any one thing from dominating: capped work tops out at{" "}
-          <strong className="text-ink">{pts(cappedMax)}</strong> a month.
-          Meetings, demos and bonuses have no cap.
-        </p>
       </section>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -226,8 +200,7 @@ export default async function HowItWorksPage() {
             <li className="flex items-start gap-3">
               <Stamp tone="approved">Approved</Stamp>
               <span className="leading-snug">
-                Shipped: {pts(WEIGHTS.shipped.points)}, once per project, up to{" "}
-                {WEIGHTS.shipped.cap} a month.
+                Shipped: {pts(WEIGHTS.shipped.points)}, once per project.
               </span>
             </li>
           </ul>

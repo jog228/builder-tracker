@@ -82,7 +82,7 @@ describe("computeScores", () => {
     expect(s.some((x) => x.member_id === "exec")).toBe(false);
   });
 
-  it("counts any real progress update (substance ≥ 1), capped at 80 a month", () => {
+  it("counts every real progress update (substance ≥ 1) in full, no cap", () => {
     const messages = [
       msg({ substance: 0 }), // nothing
       msg({ category: "chatter", substance: 3 }), // nothing
@@ -93,7 +93,7 @@ describe("computeScores", () => {
     ];
     const b = snap(computeScores(input({ messages }), NOW), "ana").components;
     expect(b.progress.count).toBe(12);
-    expect(b.progress.points).toBe(80);
+    expect(b.progress.points).toBe(120); // was capped at 80
   });
 
   it("gives a single light update (substance 1) its 10 points", () => {
@@ -154,14 +154,14 @@ describe("computeScores", () => {
     ).toBe(3);
   });
 
-  it("caps help at 25 a month", () => {
+  it("counts help in full (no cap)", () => {
     const messages = Array.from({ length: 8 }, () =>
       msg({ category: "help_given" }),
     );
     expect(
       snap(computeScores(input({ messages }), NOW), "ana").components.help
         .points,
-    ).toBe(25);
+    ).toBe(40); // 8 × 5; was capped at 25
   });
 
   it("adds uncapped bonus points as their own line", () => {
@@ -279,7 +279,7 @@ describe("computeScores", () => {
     expect(snap(s, "ana", "all").components.events.count).toBe(4);
   });
 
-  it("all-time sums each month's capped points", () => {
+  it("all-time sums each month's points, all in full", () => {
     const messages = [
       ...Array.from({ length: 10 }, () =>
         msg({ created_at: "2026-09-20T15:00:00Z" }),
@@ -289,8 +289,29 @@ describe("computeScores", () => {
       ),
     ];
     const s = computeScores(input({ messages }), NOW);
-    expect(snap(s, "ana").components.progress.points).toBe(80);
-    expect(snap(s, "ana", "all").components.progress.points).toBe(160);
+    expect(snap(s, "ana").components.progress.points).toBe(100);
+    expect(snap(s, "ana", "all").components.progress.points).toBe(200);
+  });
+});
+
+describe("no caps anywhere", () => {
+  it("adds up every component in full, however much there is", () => {
+    const messages = [
+      ...Array.from({ length: 20 }, (_, i) =>
+        msg({
+          created_at: `2026-10-${String((i % 20) + 1).padStart(2, "0")}T15:00:00Z`,
+          liked_by: Array.from({ length: 5 }, (_, j) => `u${i}-${j}`),
+        }),
+      ),
+      ...Array.from({ length: 10 }, () => msg({ category: "help_given" })),
+    ];
+    const b = snap(computeScores(input({ messages }), NOW), "ana").components;
+    expect(b.progress.points).toBe(200); // 20 × 10 (old cap 80)
+    expect(b.likes.points).toBe(100); // 100 likes (old cap 30)
+    expect(b.help.points).toBe(50); // 10 × 5 (old cap 25)
+    expect(
+      Object.values(b).some((c) => typeof c === "object" && c && "cap" in c),
+    ).toBe(false);
   });
 });
 

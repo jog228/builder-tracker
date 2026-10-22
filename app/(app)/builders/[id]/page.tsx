@@ -37,6 +37,7 @@ import { requireReader } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
 import { BADGES, BONUS } from "@/lib/scoring/config";
+import { standing, standingText } from "@/lib/scoring/standing";
 import { localDate, monthKey } from "@/lib/scoring/time";
 import {
   canEditNowBuilding,
@@ -62,6 +63,11 @@ export default async function BuilderPage({
   const { member } = p;
   const excluded = member.exclude_from_rankings;
   const shown = allTime ? p.all : p.month;
+  // "X pts to pass [name]" / "#1 — leading by X pts", for the period shown.
+  const standingNow = standing(
+    allTime ? p.rankings.all : p.rankings.month,
+    member.id,
+  );
   // Exec board (and inactive) members get no card.
   const nowBuilding = nowBuildingCard(
     member,
@@ -180,7 +186,6 @@ export default async function BuilderPage({
                 <>
                   <ScoreBreakdown
                     breakdown={shown.breakdown}
-                    monthly={!allTime}
                     attendance={attendance}
                   />
                   <div className="border-ink mt-4 flex items-baseline justify-between border-t-[3px] pt-3">
@@ -191,6 +196,11 @@ export default async function BuilderPage({
                       <CountUp value={shown.total} />
                     </span>
                   </div>
+                  {standingNow && (
+                    <p className="bg-safety mt-3 border-2 border-[#111] px-3 py-2 text-center font-bold tracking-wider text-[#111] uppercase">
+                      {standingText(standingNow)}
+                    </p>
+                  )}
                 </>
               ) : (
                 <EmptyState icon={Calculator}>No score yet.</EmptyState>
@@ -319,7 +329,7 @@ export default async function BuilderPage({
                         title={
                           u.category === "shipped"
                             ? "Shipped points count once per project"
-                            : "Before the monthly cap"
+                            : undefined
                         }
                       >
                         {u.points ? `+${u.points}` : "No points"}

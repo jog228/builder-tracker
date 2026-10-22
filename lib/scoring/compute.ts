@@ -1,6 +1,6 @@
 // Score computation (PLAN.md §5). Pure: takes everything as input, returns one
 // snapshot per rankable member for the current month and for all time.
-// Monthly caps apply per month; all-time is the sum of capped months.
+// No caps: every item counts in full. All-time is the sum of the months.
 import {
   bonusComponent,
   bonusDate,
@@ -55,7 +55,7 @@ export type ScoringInput = {
   aliases: AliasMap;
 };
 
-export type Component = { count: number; points: number; cap: number | null };
+export type Component = { count: number; points: number };
 
 export type Breakdown = {
   progress: Component;
@@ -91,7 +91,7 @@ export type Snapshot = {
   components: Breakdown & { streak_weeks: Streak };
 };
 
-// Raw per-month tallies before weights and caps.
+// Raw per-month tallies before weights.
 type Tally = {
   progress: number;
   shipped: number;
@@ -118,10 +118,7 @@ const emptyTally = (): Tally => ({
   bonus: [],
 });
 
-const capped = (count: number, w: { points: number; cap: number | null }) => {
-  const raw = count * w.points;
-  return w.cap === null ? raw : Math.min(raw, w.cap);
-};
+const pts = (count: number, w: { points: number }) => count * w.points;
 
 function monthBreakdown(
   t: Tally,
@@ -132,44 +129,36 @@ function monthBreakdown(
   return {
     progress: {
       count: t.progress,
-      points: capped(t.progress, WEIGHTS.progressUpdate),
-      cap: WEIGHTS.progressUpdate.cap,
+      points: pts(t.progress, WEIGHTS.progressUpdate),
     },
     shipped: {
       count: t.shipped,
-      points: capped(t.shipped, WEIGHTS.shipped),
-      cap: WEIGHTS.shipped.cap,
+      points: pts(t.shipped, WEIGHTS.shipped),
     },
     help: {
       count: t.help,
-      points: capped(t.help, WEIGHTS.helpGiven),
-      cap: WEIGHTS.helpGiven.cap,
+      points: pts(t.help, WEIGHTS.helpGiven),
     },
     likes: {
       count: t.likes,
-      points: capped(t.likes, WEIGHTS.likesReceived),
-      cap: WEIGHTS.likesReceived.cap,
+      points: pts(t.likes, WEIGHTS.likesReceived),
     },
-    events: { count: t.eventCount, points: t.eventPoints, cap: null },
+    events: { count: t.eventCount, points: t.eventPoints },
     githubDays: {
       count: t.githubDays,
-      points: capped(t.githubDays, WEIGHTS.githubActiveDay),
-      cap: WEIGHTS.githubActiveDay.cap,
+      points: pts(t.githubDays, WEIGHTS.githubActiveDay),
     },
     githubPrs: {
       count: t.githubPrs,
-      points: capped(t.githubPrs, WEIGHTS.githubMergedPr),
-      cap: WEIGHTS.githubMergedPr.cap,
+      points: pts(t.githubPrs, WEIGHTS.githubMergedPr),
     },
     streak: {
       count: t.streakWeeks,
-      points: capped(t.streakWeeks, WEIGHTS.streakWeek),
-      cap: WEIGHTS.streakWeek.cap,
+      points: pts(t.streakWeeks, WEIGHTS.streakWeek),
     },
     bonus: {
       count: t.bonus.length,
       points: bonus.total,
-      cap: null,
       lines: bonus.lines,
     },
   };
@@ -177,14 +166,13 @@ function monthBreakdown(
 
 const COMPONENT_KEYS = Object.keys(COMPONENT_LABELS) as (keyof Breakdown)[];
 
-/** Sums monthly breakdowns (each already capped) into an all-time breakdown. */
+/** Sums monthly breakdowns into an all-time breakdown. */
 function sumBreakdowns(months: Breakdown[]): Breakdown {
   const total = monthBreakdown(emptyTally(), new Map());
   for (const m of months) {
     for (const k of COMPONENT_KEYS) {
       total[k].count += m[k].count;
       total[k].points += m[k].points;
-      total[k].cap = null; // caps are per month
     }
     total.bonus.lines.push(...m.bonus.lines);
   }

@@ -11,6 +11,7 @@ import { badgeIcon, Icon } from "@/components/bs/icon";
 import { FloorsBar } from "@/components/bs/floors-bar";
 import type { LeaderboardRow } from "@/lib/data/leaderboard";
 import { plural } from "@/lib/format";
+import { barPercent } from "@/lib/scoring/standing";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "streak" | "shipped" | "scored";
@@ -37,8 +38,8 @@ export function RankedList({
   const reduce = useReducedMotion();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  // A little headroom so the leader's bar isn't a solid block.
-  const max = Math.max(1, ...rows.map((r) => r.total)) * 1.06;
+  // Bars are relative to #1 (over the whole board, not just filtered rows).
+  const leaderTotal = Math.max(0, ...rows.map((r) => r.total));
 
   const visible = useMemo(
     () =>
@@ -104,7 +105,7 @@ export function RankedList({
           {visible.map((r, i) => {
             const me = r.memberId === viewerId;
             const delay = Math.min(i, 15) * 0.04;
-            const pct = (r.total / max) * 100;
+            const pct = barPercent(r.total, leaderTotal);
             const shipped = r.breakdown.shipped.count;
             return (
               <motion.li
