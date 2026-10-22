@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BONUS } from "@/lib/scoring/config";
+import { localDate } from "@/lib/scoring/time";
 import { applyCheckin, type CheckinRow, type CheckinStore } from "./checkin";
 
 const EVENT = "11111111-1111-4111-8111-111111111111";
@@ -129,6 +130,27 @@ describe("applyCheckin authorization (server layer)", () => {
       expect(res).toMatchObject({ ok: false, status: 409 });
       expect(writes()).toBe(0);
     }
+  });
+
+  it("uses Eastern time: 10:30pm Wednesday is still Wednesday", async () => {
+    // 02:30 UTC Thursday Oct 22 = 10:30 PM Wednesday Oct 21 in New York.
+    const today = localDate(new Date("2026-10-22T02:30:00Z"));
+    expect(today).toBe("2026-10-21");
+    const { store, writes } = fakeStore();
+    const res = await applyCheckin(
+      ADMIN,
+      store,
+      {
+        eventId: EVENT,
+        memberId: MEMBER,
+        target: { present: true, demo: false },
+      },
+      today,
+    );
+    expect(res).toMatchObject({ ok: false, status: 409 });
+    expect(writes()).toBe(0);
+    // Midnight Eastern (04:00 UTC) opens it.
+    expect(localDate(new Date("2026-10-22T04:00:00Z"))).toBe("2026-10-22");
   });
 
   it("opens sign-ins on the meeting's date", async () => {

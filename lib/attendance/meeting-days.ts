@@ -32,9 +32,20 @@ export type MeetingOption = {
 };
 
 /**
- * Picker dates, newest first: every season week's usual meeting day up to
- * this week (opened, and created, as before), plus every existing meeting
- * since the season start, future ones included.
+ * The meeting a week resolves to: an existing meeting that week (the latest
+ * one on or before `today`, else the earliest), else the usual meeting day.
+ */
+function weekMeeting(week: string, existing: string[], today: string): string {
+  const inWeek = existing.filter((d) => weekKey(d) === week).sort();
+  if (!inWeek.length) return meetingDate(week);
+  return inWeek.filter((d) => d <= today).at(-1) ?? inWeek[0];
+}
+
+/**
+ * Picker dates, newest first: every existing meeting since the season start
+ * (future ones included), plus the usual meeting day of each season week up
+ * to this week that has no meeting yet (opened, and created, as before). A
+ * week that already has a meeting on another day gets no extra Thursday.
  */
 export function meetingOptions(
   existingDates: string[],
@@ -42,18 +53,20 @@ export function meetingOptions(
   seasonStart: string = SEASON_START,
 ): MeetingOption[] {
   const today = localDate(now);
-  const current = meetingDate(weekKey(now));
-  const existing = new Set(
-    existingDates.filter((d) => inSeason(d, seasonStart)),
-  );
-  const defaults = pickerWeeks(now, seasonStart).map(meetingDate);
+  const existing = existingDates.filter((d) => inSeason(d, seasonStart));
+  const existingSet = new Set(existing);
+  const weeksWithMeetings = new Set(existing.map((d) => weekKey(d)));
+  const defaults = pickerWeeks(now, seasonStart)
+    .filter((w) => !weeksWithMeetings.has(w))
+    .map(meetingDate);
+  const current = weekMeeting(weekKey(now), existing, today);
   return [...new Set([...defaults, ...existing])]
     .sort((a, b) => b.localeCompare(a))
     .map((date) => ({
       date,
       current: date === current,
       upcoming: date > today,
-      exists: existing.has(date),
+      exists: existingSet.has(date),
     }));
 }
 
@@ -73,7 +86,12 @@ export function resolveMeetingDate(
   const offered = new Set(options.map((o) => o.date));
   if (params.date && offered.has(params.date)) return params.date;
   if (params.week) {
-    const d = meetingDate(resolveWeek(params.week, now));
+    const existing = options.filter((o) => o.exists).map((o) => o.date);
+    const d = weekMeeting(
+      resolveWeek(params.week, now),
+      existing,
+      localDate(now),
+    );
     if (offered.has(d)) return d;
   }
   return options.find((o) => o.current)?.date ?? options[0].date;

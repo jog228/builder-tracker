@@ -125,3 +125,37 @@ describe("timeLabel", () => {
     expect(timeLabel("09:05")).toBe("9:05 AM");
   });
 });
+
+describe("a week that already has a meeting on another day", () => {
+  // Week of Oct 26: a Wednesday meeting exists; Thursday must not be added.
+  const withWed = [...existing, "2026-10-28"];
+  const WED_NOON = new Date("2026-10-28T16:00:00Z");
+  const FRI = new Date("2026-10-30T16:00:00Z");
+
+  it("offers that meeting instead of an extra Thursday", () => {
+    for (const now of [NOW, WED_NOON, FRI]) {
+      const dates = meetingOptions(withWed, now).map((o) => o.date);
+      expect(dates).toContain("2026-10-28");
+      expect(dates).not.toContain("2026-10-29");
+    }
+  });
+
+  it("opens to it as this week's meeting", () => {
+    const opts = meetingOptions(withWed, FRI);
+    expect(opts.find((o) => o.current)?.date).toBe("2026-10-28");
+    expect(resolveMeetingDate({}, opts, FRI)).toBe("2026-10-28");
+    expect(resolveMeetingDate({ week: "2026-10-29" }, opts, FRI)).toBe(
+      "2026-10-28",
+    );
+  });
+
+  it("still offers the usual Thursday for weeks with no meeting", () => {
+    const dates = meetingOptions(["2026-10-01"], NOW).map((o) => o.date);
+    expect(dates).toEqual([
+      "2026-10-22",
+      "2026-10-15",
+      "2026-10-08",
+      "2026-10-01",
+    ]);
+  });
+});
