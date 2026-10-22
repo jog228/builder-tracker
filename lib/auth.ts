@@ -127,6 +127,22 @@ export async function requireViewer(): Promise<Viewer> {
   return viewer;
 }
 
+/** Result of an admin-only server action. Non-admins get a 403. */
+export type AdminActionResult =
+  { ok: true } | { ok: false; status: 403; error: string };
+
+export const FORBIDDEN = {
+  ok: false,
+  status: 403,
+  error: "Only exec board admins can do that.",
+} as const;
+
+/** For server actions: the admin viewer, or null (return FORBIDDEN). Never redirects. */
+export async function getAdmin(): Promise<Viewer | null> {
+  const viewer = await getViewer();
+  return viewer?.isAdmin ? viewer : null;
+}
+
 export async function requireAdmin(): Promise<Viewer> {
   const viewer = await requireViewer();
   if (!viewer.isAdmin) redirect("/leaderboard");

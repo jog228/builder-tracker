@@ -40,6 +40,7 @@ Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they ca
 - UI components: add with `npx shadcn@latest add <name>`; they go into `components/ui/`.
 - Scoring weights live only in `lib/scoring/config.ts`. Scoring logic is pure functions with Vitest tests.
 - Exec board members (`members.exclude_from_rankings`) are ingested but never scored, ranked, badged, awarded, counted in stats, or given attendance rows. Query `ranked_members` (view) or use `isRankable()` from `lib/scoring/eligibility.ts`. DB triggers reject derived rows for them as a backstop. Likes they _give_ still count for recipients. See PLAN.md §4a.
+- Route access is an allowlist, deny by default (`lib/access.ts`): members may reach only `/`, `/leaderboard`, `/stats` and `/builders/[id]`; `/login`, `/not-a-member`, `/auth/*` and `/api/cron/*` are public; everything else is admin-only. Middleware redirects non-admins to `/leaderboard`, and every page also guards itself (`requireViewer()` for member routes, `requireAdmin()` for the rest). A new page is admin-only until it is added to `MEMBER_ROUTES`; `lib/access.test.ts` fails if a page's guard doesn't match. Admin-only server actions return `FORBIDDEN` (403) via `getAdmin()`, never a redirect.
 - Cron routes live under `app/api/cron/*` and must check `Authorization: Bearer ${CRON_SECRET}`.
 - Standalone scripts go in `scripts/` and get an npm script entry.
 - Schema changes are new files in `supabase/migrations/` (never edit an applied migration).

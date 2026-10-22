@@ -155,7 +155,7 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 
 ### Phase 3: Attendance (exec board only) ✅
 Kept simple: weekly meetings only, no history import, no general events page yet.
-- **Access, at every layer:** RLS lets only `role='admin'` insert, update or delete `events` and `attendance`, and only in their own name. The `setCheckin` server action re-checks admin and returns a 403 result otherwise. Non-admins never see the "Sign-in" nav link, and `/admin/checkin` redirects them to the leaderboard. Every attendance row stores who marked it (`recorded_by`) and when (`recorded_at`, server time).
+- **Access, at every layer:** RLS lets only `role='admin'` insert, update or delete `events` and `attendance`, and only in their own name. The `setCheckin` server action re-checks admin and returns a 403 result otherwise. Non-admins never see the "Check-in" nav link, and `/admin/checkin` redirects them to the leaderboard. Every attendance row stores who marked it (`recorded_by`) and when (`recorded_at`, server time).
 - **Weekly meetings:** one "Weekly Meeting" event per week on the day and time in `WEEKLY_MEETING` (`lib/scoring/config.ts`; Thursday 4:30 PM). It's created the first time an admin opens that week's sheet (unique per date).
 - **`/admin/checkin`:** opens to this week's meeting, with a week picker (the last 12 weeks) for fixing a missed week. It's styled as the G2 "Crew sign-in" sheet: a mobile-first grid of avatars and names with search. Tap to sign someone in, or 🎤 to add a demo (a `demo` bonus at `BONUS.demoPoints`, which also signs them in). A live "X present" count sits in a sticky header. Exec board members are hidden. Changes save instantly (optimistic, queued per member) with an Undo toast. Un-signing someone also revokes their demo for that meeting.
 - **Scoring:** attending earns `WEIGHTS.eventAttended` × the event's weight (15 pts). Scores recompute in the background after each change (`lib/scoring/recompute.ts`, coalesced), and the nightly cron catches anything missed.
@@ -184,6 +184,11 @@ Kept simple: weekly meetings only, no history import, no general events page yet
   - Exec board members don't appear on the leaderboard and have no score breakdown, streak or badges on their profiles
 - **Done when:** a logged-in member sees real rankings, and a logged-out visitor sees nothing.
 - Badges: the full starter catalog is seeded, so profiles show earned vs locked badges. The rules that award them come in Phase 6.
+
+### Navigation lockdown ✅
+- Deny-by-default route allowlist (`lib/access.ts`). Regular members can reach only the leaderboard, stats and profiles, plus sign-in and sign-out. Everything else, including `/admin/*` and any future page, redirects non-admins to `/leaderboard`. It's enforced in middleware and in each page's server code (`requireViewer` / `requireAdmin`). Admin-only server actions return 403.
+- Nav: members see Leaderboard and Stats; admins also see Check-in and Permits.
+- Tests: `lib/access.test.ts` (allowlist, middleware decisions, and an inventory of every page/route in `app/`) and `app/(app)/admin/actions.test.ts` (each admin action returns 403 without touching the database).
 
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)

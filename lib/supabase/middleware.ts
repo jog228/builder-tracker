@@ -1,10 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { routeDecision, routeAccess } from "@/lib/access";
 
-// Paths that work without a session.
-const PUBLIC = [/^\/login/, /^\/not-a-member/, /^\/auth\//, /^\/api\/cron\//];
-
-/** Refreshes the Supabase session cookie and sends logged-out visitors to /login. */
+/**
+ * Refreshes the Supabase session cookie and enforces lib/access.ts: logged-out
+ * visitors go to /login, and non-admins on any non-allowlisted route go to
+ * /leaderboard. Pages and server actions check again (requireViewer /
+ * requireAdmin / 403).
+ */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -35,11 +38,26 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  if (!user && !PUBLIC.some((re) => re.test(path))) {
+  let isAdmin: boolean | null = null;
+  if (user && routeAccess(path) === "admin") {
+    // RLS: only a linked, active member can read their row.
+    const { data } = await supabase
+      .from("members")
+      .select("role")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    isAdmin = data ? data.role === "admin" : null;
+  }
+
+  const decision = routeDecision(path, { signedIn: !!user, isAdmin });
+  if (decision.action === "redirect") {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = decision.to;
     url.search = "";
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    // Keep any refreshed session cookies.
+    response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+    return redirect;
   }
   return response;
 }

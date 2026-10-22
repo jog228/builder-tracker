@@ -19,6 +19,7 @@ export async function setCheckin(
   memberId: string,
   target: CheckinTarget,
 ): Promise<CheckinResult> {
+  // applyCheckin returns 403 for anyone who isn't an admin.
   const viewer = await getViewer();
   const result = await applyCheckin(
     viewer && { memberId: viewer.memberId, isAdmin: viewer.isAdmin },

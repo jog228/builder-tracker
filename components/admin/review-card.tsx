@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { decideShipped, reopenShipped } from "@/app/(app)/admin/actions";
 import { Stamp } from "@/components/bs/site";
 import type { QueueItem } from "@/lib/data/shipped-review";
@@ -17,8 +17,12 @@ export function ReviewCard({
   first: boolean;
 }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const decide = (d: "shipped" | "progress") =>
-    start(() => decideShipped(item.messageId, d));
+    start(async () => {
+      const res = await decideShipped(item.messageId, d);
+      setError(res.ok ? null : res.error);
+    });
 
   return (
     <motion.article
@@ -111,6 +115,11 @@ export function ReviewCard({
         >
           No, just progress
         </button>
+        {error && (
+          <span role="alert" className="text-bad w-full font-semibold">
+            {error}
+          </span>
+        )}
         <span className="text-slate w-full text-sm sm:ml-auto sm:w-auto">
           Counts as progress
           {item.substance !== null ? ` (substance ${item.substance})` : ""}{" "}
@@ -123,13 +132,20 @@ export function ReviewCard({
 
 export function ReopenButton({ messageId }: { messageId: string }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   return (
     <button
       disabled={pending}
-      onClick={() => start(() => reopenShipped(messageId))}
+      title={error ?? undefined}
+      onClick={() =>
+        start(async () => {
+          const res = await reopenShipped(messageId);
+          setError(res.ok ? null : res.error);
+        })
+      }
       className="border-ink hover:bg-concrete min-h-9 border-2 px-2.5 text-sm font-bold tracking-wider uppercase disabled:opacity-50"
     >
-      {pending ? "…" : "Reopen"}
+      {pending ? "…" : error ? "Not allowed" : "Reopen"}
     </button>
   );
 }
