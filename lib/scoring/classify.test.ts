@@ -51,6 +51,9 @@ describe("skipReason", () => {
 const batch: ClassifiableMessage[] = [
   {
     id: "111",
+    memberId: "ana",
+    createdAt: "2026-10-01T00:00:00Z",
+    authorProjects: ["Kiwi"],
     text: longText,
     channel: "Main",
     hasMedia: false,
@@ -58,6 +61,9 @@ const batch: ClassifiableMessage[] = [
   },
   {
     id: "222",
+    memberId: "ben",
+    createdAt: "2026-10-02T00:00:00Z",
+    authorProjects: [],
     text: "Try Vetwork as a name!",
     channel: "Goals",
     hasMedia: false,
@@ -84,6 +90,25 @@ describe("buildClassifyRequest", () => {
   });
 });
 
+describe("buildClassifyRequest author context", () => {
+  it("links same-author messages with anonymous keys and lists known projects", () => {
+    const req = buildClassifyRequest([
+      ...batch,
+      { ...batch[0], id: "333", createdAt: "2026-10-03T00:00:00Z" },
+    ]);
+    const items = JSON.parse(
+      (req.messages[0].content as string).replace(/^[^\[]*/, ""),
+    );
+    expect(items.map((i: { author: string }) => i.author)).toEqual([
+      "a1",
+      "a2",
+      "a1",
+    ]);
+    expect(items[0].author_projects).toEqual(["Kiwi"]);
+    expect(JSON.stringify(items)).not.toMatch(/ana|ben/);
+  });
+});
+
 describe("parseClassifyResponse", () => {
   it("maps refs back to message ids", () => {
     const parsed = parseClassifyResponse(
@@ -93,7 +118,7 @@ describe("parseClassifyResponse", () => {
           results: [
             {
               ref: "m1",
-              category: "shipped",
+              category: "shipped_candidate",
               substance: 2,
               summary: "Deployed login. ",
               project: " Kiwi ",
@@ -113,7 +138,7 @@ describe("parseClassifyResponse", () => {
     expect(parsed.scores).toEqual([
       {
         message_id: "111",
-        category: "shipped",
+        category: "shipped_candidate",
         substance: 2,
         summary: "Deployed login.",
         project: "Kiwi",

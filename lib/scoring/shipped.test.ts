@@ -1,5 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { countableShipped, projectKey } from "./shipped";
+import { buildAliasMap } from "./projects";
+import { countableShipped, effectiveCategory } from "./shipped";
+
+describe("effectiveCategory", () => {
+  it("treats a candidate as progress until an exec says yes", () => {
+    expect(effectiveCategory("shipped_candidate", null)).toBe(
+      "progress_update",
+    );
+    expect(effectiveCategory("shipped_candidate", "pending")).toBe(
+      "progress_update",
+    );
+    expect(effectiveCategory("shipped_candidate", "progress")).toBe(
+      "progress_update",
+    );
+    expect(effectiveCategory("shipped_candidate", "shipped")).toBe("shipped");
+  });
+
+  it("lets an exec mark a post shipped that the model didn't flag", () => {
+    expect(effectiveCategory("progress_update", "shipped")).toBe("shipped");
+    expect(effectiveCategory("chatter", null)).toBe("chatter");
+  });
+});
 
 const post = (
   member_id: string,
@@ -8,19 +29,8 @@ const post = (
   category = "shipped",
 ) => ({ member_id, project, created_at, category });
 
-describe("projectKey", () => {
-  it("matches spelling variants of the same name", () => {
-    expect(projectKey("C-art-ion")).toBe(projectKey("Cartion "));
-    expect(projectKey("Muggy")).toBe(projectKey("muggy"));
-  });
-
-  it("groups unnamed projects together", () => {
-    expect(projectKey(null)).toBe(projectKey(""));
-  });
-});
-
 describe("countableShipped", () => {
-  it("counts a member's project once, at its first shipped post", () => {
+  it("counts a member's project once, at its first approved post", () => {
     const first = post("henry", "Muggy", "2026-10-09T00:00:00Z");
     const rows = [
       post("henry", "muggy", "2026-10-20T00:00:00Z"),
@@ -30,7 +40,19 @@ describe("countableShipped", () => {
     expect(countableShipped(rows)).toEqual([first]);
   });
 
-  it("counts different projects, and the same project name for different members", () => {
+  it("merges projects an admin has aliased", () => {
+    const aliases = buildAliasMap([
+      { member_id: "henry", alias: "weather outfit app", canonical: "Muggy" },
+    ]);
+    const rows = [
+      post("henry", "weather outfit app", "2026-10-05T00:00:00Z"),
+      post("henry", "Muggy", "2026-10-09T00:00:00Z"),
+    ];
+    expect(countableShipped(rows, aliases)).toHaveLength(1);
+    expect(countableShipped(rows)).toHaveLength(2);
+  });
+
+  it("counts different projects, and the same name for different members", () => {
     const rows = [
       post("henry", "Muggy", "2026-10-09T00:00:00Z"),
       post("henry", "Weatherly", "2026-10-12T00:00:00Z"),
@@ -39,10 +61,11 @@ describe("countableShipped", () => {
     expect(countableShipped(rows)).toHaveLength(3);
   });
 
-  it("ignores posts that aren't shipped", () => {
-    const rows = [
-      post("henry", "Muggy", "2026-10-09T00:00:00Z", "progress_update"),
-    ];
-    expect(countableShipped(rows)).toEqual([]);
+  it("ignores posts that aren't approved as shipped", () => {
+    expect(
+      countableShipped([
+        post("henry", "Muggy", "2026-10-09T00:00:00Z", "progress_update"),
+      ]),
+    ).toEqual([]);
   });
 });

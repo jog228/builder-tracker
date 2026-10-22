@@ -19,7 +19,8 @@
     "test:watch": "vitest",
     "set-exec": "tsx --conditions=react-server --env-file=.env.local scripts/set-exec.ts",
     "score-messages": "tsx --conditions=react-server --env-file=.env.local scripts/score-messages.ts",
-    "eval:classifier": "tsx --conditions=react-server --env-file=.env.local scripts/eval-classifier.ts"
+    "eval:classifier": "tsx --conditions=react-server --env-file=.env.local scripts/eval-classifier.ts",
+    "flag-shipped": "tsx --conditions=react-server --env-file=.env.local scripts/flag-shipped.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

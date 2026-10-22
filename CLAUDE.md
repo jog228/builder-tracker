@@ -20,6 +20,7 @@ at a time, and stop for review after each phase.
 - `npm test`: Vitest unit tests (`*.test.ts` next to the code)
 - `npm run groupme:list-groups` / `groupme:backfill` / `groupme:sync` / `groupme:purge-raw`
 - `npm run score-messages` / `npm run eval:classifier`: AI message scoring and its eval (both call the Anthropic API and cost money)
+- `npm run flag-shipped -- <message id> [--priority N]`: queue a message for shipped review
 - `npm run set-exec -- [--dry-run] "<GroupMe name or id>" ...`: mark exec board members (admin + excluded from rankings)
 
 Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they can import `server-only` modules.
@@ -40,6 +41,8 @@ Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they ca
 - GroupMe: `lib/groupme.ts` is the API client; `lib/groupme-sync.ts` holds the shared backfill/incremental logic. Incremental sync pages with `after_id` (not `since_id`, which skips messages when >100 arrive) and re-reads the last 7 days to refresh likes.
 - GroupMe subtopics are separate channels (`messages.channel_id` / `channel_name`), each with its own sync cursor.
 - Message scoring: `lib/scoring/classify.ts` is pure (prompt, request, parsing, cost); `lib/scoring/score-messages.ts` loads, runs and saves results through a swappable `ClassifyExecutor` (realtime now, Batch API later). Never send member names to the model.
+- Bonus points (`bonus_points`): manual, uncapped, demo default in `lib/scoring/config.ts`. A demo counts once per member per event and also marks attendance (DB trigger). Undo = revoke (`revoked_at`), never delete. Counting rules live in `lib/scoring/bonus.ts`.
+- Shipped is never awarded by the model: it outputs `shipped_candidate`, queued in `shipped_approvals`; only an exec "yes" makes it shipped (`effectiveCategory()`). Project names go through `project_aliases` (`lib/scoring/projects.ts`). Classifier batches run chronologically so `author_projects` carries forward.
 - `messages.liked_by` stores GroupMe user ids (likers may not be members); `messages.sender_groupme_id` allows re-mapping senders to members.
 
 ## Guardrails

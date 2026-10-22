@@ -7,6 +7,7 @@ import { CLASSIFIER, costUsd, type Category } from "../lib/scoring/classify";
 import {
   classifyMessages,
   loadClassifiable,
+  loadKnownProjects,
 } from "../lib/scoring/score-messages";
 import { createAdminClient } from "../lib/supabase/admin";
 
@@ -20,9 +21,11 @@ type Label = {
 const pct = (n: number, d: number) =>
   d ? `${((n / d) * 100).toFixed(0)}% (${n}/${d})` : "n/a";
 
-// Mirrors scoring v1: only these labels earn points from a message.
+// Mirrors scoring v1 before any exec review: a shipped candidate counts as
+// progress until approved, so it earns points at substance ≥ 2.
 const earnsPoints = (c: Category, s: number) =>
-  (c === "progress_update" && s >= 2) || c === "shipped" || c === "help_given";
+  ((c === "progress_update" || c === "shipped_candidate") && s >= 2) ||
+  c === "help_given";
 
 async function main() {
   const labels: Label[] = JSON.parse(
@@ -40,7 +43,9 @@ async function main() {
     );
   }
 
-  const outcome = await classifyMessages(messages);
+  // Same context as production: each message sees its author's projects from
+  // earlier scored messages.
+  const outcome = await classifyMessages(messages, await loadKnownProjects(db));
   const predicted = new Map(outcome.scores.map((s) => [s.message_id, s]));
   const graded = labels.filter((l) => predicted.has(l.id));
 

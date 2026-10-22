@@ -15,6 +15,7 @@ import {
   type SkipReason,
   type TokenUsage,
 } from "./classify";
+import { KnownProjects, buildAliasMap, type ProjectAlias } from "./projects";
 
 // ─── Executors ──────────────────────────────────────────────────────────────
 // An executor turns requests into responses. The realtime one calls the
@@ -75,6 +76,7 @@ async function fetchAll<T>(
 
 type MessageRow = {
   id: string;
+  created_at: string;
   text: string | null;
   sender_type: string;
   member_id: string | null;
@@ -84,7 +86,7 @@ type MessageRow = {
 };
 
 const MESSAGE_COLUMNS =
-  "id, text, sender_type, member_id, channel_name, has_attachment, reply_to_id";
+  "id, created_at, text, sender_type, member_id, channel_name, has_attachment, reply_to_id";
 
 /** Attaches reply context and shapes rows for the classifier. */
 async function toClassifiable(
@@ -106,6 +108,9 @@ async function toClassifiable(
 
   return rows.map((r) => ({
     id: r.id,
+    memberId: r.member_id ?? "",
+    createdAt: r.created_at,
+    authorProjects: [], // filled per batch by classifyMessages
     text: (r.text ?? "").trim(),
     channel: r.channel_name ?? "Main",
     hasMedia: r.has_attachment,
@@ -124,6 +129,42 @@ export async function loadClassifiable(
     .in("id", ids);
   if (error) throw error;
   return toClassifiable(db, data);
+}
+
+type MessageRef = { member_id: string | null; created_at: string };
+
+/**
+ * Every project already recorded, with admin aliases applied: the starting
+ * point for the author_projects context.
+ */
+export async function loadKnownProjects(
+  db: SupabaseClient,
+): Promise<KnownProjects> {
+  const [scored, aliases] = await Promise.all([
+    // Supabase types the embedded message as an array; it's a single row.
+    fetchAll<{
+      project: string | null;
+      messages: MessageRef | MessageRef[];
+    }>((from, to) =>
+      db
+        .from("message_scores")
+        .select("project, messages!inner(member_id, created_at)")
+        .not("project", "is", null)
+        .range(from, to),
+    ),
+    fetchAll<ProjectAlias>((from, to) =>
+      db
+        .from("project_aliases")
+        .select("member_id, alias, canonical")
+        .range(from, to),
+    ),
+  ]);
+  const known = new KnownProjects(buildAliasMap(aliases));
+  for (const s of scored) {
+    const msg = Array.isArray(s.messages) ? s.messages[0] : s.messages;
+    if (msg?.member_id) known.add(msg.member_id, s.project, msg.created_at);
+  }
+  return known;
 }
 
 /** Every unscored message that may be scored, plus counts of what was skipped. */
@@ -179,35 +220,41 @@ export type ClassifyOutcome = {
   requests: number;
 };
 
-/** Classifies messages in batches of CLASSIFIER.batchSize. Writes nothing. */
+/**
+ * Classifies messages in chronological batches of CLASSIFIER.batchSize. Writes
+ * nothing. Batches run one after another so each sees the projects found in
+ * earlier ones (author_projects). For the Batch API, submit one day's messages
+ * per batch job to keep that ordering.
+ */
 export async function classifyMessages(
   messages: ClassifiableMessage[],
+  known: KnownProjects,
   executor: ClassifyExecutor = realtimeExecutor(),
 ): Promise<ClassifyOutcome> {
-  const batches: ClassifiableMessage[][] = [];
-  for (let i = 0; i < messages.length; i += CLASSIFIER.batchSize) {
-    batches.push(messages.slice(i, i + CLASSIFIER.batchSize));
-  }
-
-  const responses = await executor(
-    batches.map((batch, i) => ({
-      customId: `batch-${i}`,
-      params: buildClassifyRequest(batch),
-    })),
+  const ordered = [...messages].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
   );
-
   const outcome: ClassifyOutcome = {
     scores: [],
     failed: [],
     usage: emptyUsage(),
-    requests: batches.length,
+    requests: 0,
   };
-  batches.forEach((batch, i) => {
-    const res = responses.get(`batch-${i}`);
+
+  for (let i = 0; i < ordered.length; i += CLASSIFIER.batchSize) {
+    const batch = ordered.slice(i, i + CLASSIFIER.batchSize).map((m) => ({
+      ...m,
+      authorProjects: known.before(m.memberId, m.createdAt),
+    }));
+    const customId = `batch-${outcome.requests++}`;
+    const res = (
+      await executor([{ customId, params: buildClassifyRequest(batch) }])
+    ).get(customId);
+
     if (!res || res instanceof Error) {
       const error = res?.message ?? "no response";
       batch.forEach((m) => outcome.failed.push({ id: m.id, error }));
-      return;
+      continue;
     }
     addUsage(outcome.usage, res.usage);
     const parsed = parseClassifyResponse(batch, res);
@@ -215,7 +262,12 @@ export async function classifyMessages(
     parsed.missing.forEach((id) =>
       outcome.failed.push({ id, error: parsed.error ?? "missing" }),
     );
-  });
+    const byId = new Map(batch.map((m) => [m.id, m]));
+    for (const score of parsed.scores) {
+      const m = byId.get(score.message_id)!;
+      known.add(m.memberId, score.project, m.createdAt);
+    }
+  }
   return outcome;
 }
 
@@ -226,6 +278,7 @@ export type ScoreRunStats = {
   alreadyScored: number;
   eligible: number;
   scored: number;
+  shippedCandidates: number;
   failed: number;
   skipped: Partial<Record<SkipReason, number>>;
   requests: number;
@@ -249,12 +302,29 @@ export async function scoreMessages(
 
   try {
     const { eligible, skipped, alreadyScored } = await loadUnscored(db);
-    const outcome = await classifyMessages(eligible, executor);
+    const outcome = await classifyMessages(
+      eligible,
+      await loadKnownProjects(db),
+      executor,
+    );
 
     if (outcome.scores.length) {
       const { error } = await db
         .from("message_scores")
         .upsert(outcome.scores, { onConflict: "message_id" });
+      if (error) throw error;
+    }
+
+    // Shipped candidates wait for an exec decision; until then they count as
+    // progress. Existing reviews (pending or decided) are left untouched.
+    const candidates = outcome.scores
+      .filter((s) => s.category === "shipped_candidate")
+      .map((s) => ({ message_id: s.message_id }));
+    if (candidates.length) {
+      const { error } = await db.from("shipped_approvals").upsert(candidates, {
+        onConflict: "message_id",
+        ignoreDuplicates: true,
+      });
       if (error) throw error;
     }
 
@@ -264,6 +334,7 @@ export async function scoreMessages(
       alreadyScored,
       eligible: eligible.length,
       scored: outcome.scores.length,
+      shippedCandidates: candidates.length,
       failed: outcome.failed.length,
       skipped,
       requests: outcome.requests,

@@ -52,8 +52,12 @@ messages           id (GroupMe msg id), channel_id, channel_name, reply_to_id,
                    member_id, sender_groupme_id, sender_type,
                    text, created_at, like_count, liked_by (text[] of GroupMe user ids),
                    has_attachment, raw (jsonb)
-message_scores     message_id, category ('progress_update'|'shipped'|'help_given'|
+message_scores     message_id, category ('progress_update'|'shipped_candidate'|'help_given'|
                    'event_related'|'chatter'), substance (0-3), summary, project, model, scored_at
+shipped_approvals  message_id, status ('pending'|'shipped'|'progress'), source ('classifier'|
+                   'manual'), priority, queued_at, decided_by, decided_at, note
+shipped_review_queue  view: pending approvals with message, member and score, by priority then date
+project_aliases    id, member_id, alias, canonical, created_by, created_at
 events             id, name, date, type ('meeting'|'workshop'|'hackathon'|'social'), weight
 attendance         event_id, member_id, recorded_by, recorded_at
 github_activity    member_id, date, commits, prs_opened, prs_merged, repos (text[])
@@ -63,10 +67,12 @@ score_snapshots    member_id, period ('2026-10' | 'all'), components (jsonb),
 badges             id, slug, name, description, icon
 member_badges      member_id, badge_id, earned_at
 awards             id, period, member_id, title ('Builder of the Month'), note
+bonus_points       id, member_id, event_id (nullable), type ('demo'|'other'), points,
+                   reason, awarded_by, awarded_at, revoked_at, revoked_by
 sync_runs          id, source, started_at, finished_at, status, cursor, error
 ```
 
-Row-level security: members can read everything (it's internal); only `role='admin'` can write `attendance`, `events`, `member_identities`, and `awards`. Only the service role (used by cron jobs) can write everything else.
+Row-level security: members can read everything (it's internal); only `role='admin'` can write `attendance`, `events`, `member_identities`, and `awards`. Admins can award `bonus_points` (only as themselves) and revoke them, but nobody can delete them, so the award log stays complete. Only the service role (used by cron jobs) can write everything else.
 
 ## 4a. Exec board exclusion
 
@@ -78,7 +84,7 @@ Exec board members get `role='admin'` and `exclude_from_rankings=true`. Mark the
 - **Attendance:** no attendance rows are created for them, and they're hidden from the check-in grid by default.
 - **Likes they give still count:** a like from an exec on another member's update counts for that member.
 - **One rule in code:** anything scored reads from the `ranked_members` view or calls `isRankable()` (`lib/scoring/eligibility.ts`).
-- **Database backstop:** triggers reject `attendance`, `score_snapshots`, `member_badges`, `awards` and `message_scores` rows for excluded members.
+- **Database backstop:** triggers reject `attendance`, `score_snapshots`, `member_badges`, `awards`, `bonus_points` and `message_scores` rows for excluded members. An existing bonus can still be revoked after its holder joins the exec board.
 - **When someone is excluded:** their snapshots, badges and message scores are deleted. Past attendance and awards are kept as history but filtered out at read time.
 - **Tested:** a unit test (`lib/scoring/rank.test.ts`) proves an excluded member never appears in rankings.
 
@@ -89,15 +95,24 @@ Monthly score = sum of these components, each capped so no single source dominat
 | Component | Points | Cap / month |
 |---|---|---|
 | Progress update (substance ≥ 2) | 10 each | 80 |
-| "Shipped" post (needs evidence: live link, demo, or explicit "it's live"); once per member per project (`countableShipped()`) | 25 each | 75 |
-| Helping others (`help_given`) | 5 each | 25 |
+| "Shipped" post: the classifier flags `shipped_candidate`, which counts **only after an exec member approves it**; once per member per project (`countableShipped()`, alias-aware) | 25 each | 75 |
+| Helping others (`help_given`), including sharing a useful article, link or tool in any channel | 5 each | 25 |
 | Likes received on update/shipped posts | 1 each | 30 |
 | Event attended | 15 × event weight | none |
 | GitHub: active coding days | 3 per day | 60 |
 | GitHub: merged PRs | 5 each | 40 |
 | Streak bonus (consecutive weeks with an update) | +5 per week | 30 |
+| Bonus points (manual: demos and "other") | demo default 30 (`BONUS.demoPoints`), admins can override; any amount for "other" | **none** |
 
 Only rankable members are scored: `active` and not `exclude_from_rankings` (see §4a). Likes count by who *received* them, so an exec's like on someone's update still counts for that person.
+
+**Bonus points** (`bonus_points`, logic in `lib/scoring/bonus.ts`):
+- A demo counts once per member per event. A partial unique index enforces this; revoked demos don't count.
+- Awarding a demo also marks the member present at that event (a database trigger inserts the attendance row). Revoking the demo leaves attendance as it is.
+- "Other" bonuses need a reason (e.g. "helped run the workshop") and can have an event or not.
+- Bonuses are uncapped and get their own line in the score breakdown. They show on profiles with their reason, e.g. "🎤 Demoed at Hack Night +30".
+- Undo is a soft revoke (`revoked_at` / `revoked_by`), never a delete.
+- Exec board members can't receive bonuses.
 
 Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can tweak them. Also store a score breakdown with every snapshot so anyone can see *why* they rank where they do.
 
@@ -118,8 +133,18 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 - **Done when:** the full history is in Supabase, and running the sync twice creates no duplicates.
 
 ### Phase 2: AI message scoring
-- `lib/scoring/classify.ts`: batches unscored messages (20 per call) and asks `claude-haiku-5-5` (effort `medium`: same category accuracy as `low` in the eval, but much better substance scores, for about $0.10 per 1,000 messages) for structured JSON output: `{ref, category, substance, summary}`. Short refs (`m1`…) are sent instead of GroupMe ids, along with channel name, a has-media flag and the replied-to text. No member names are sent.
-- Classification rules (confirmed by organizers): shipped requires evidence; introductions are always chatter; weekly goal posts are progress updates, and only substance ≥ 2 earns points. The classifier also extracts the `project` name, so a shipped post counts once per member per project (names are normalized, e.g. "C-art-ion" = "Cartion").
+- `lib/scoring/classify.ts`: batches unscored messages (20 per call) and asks `claude-haiku-5-5` (effort `medium`: same category accuracy as `low` in the eval, but much better substance scores, for about $0.10 per 1,000 messages) for structured JSON output: `{ref, category, substance, summary, project}`. Short refs (`m1`…) are sent instead of GroupMe ids, along with an anonymous per-batch author key (`a1`…), the author's known projects from earlier messages, the channel name, a has-media flag and the replied-to text. No member names are sent.
+- **Project continuity:** batches run in chronological order, one after another, and each message gets its author's known projects (`author_projects`, with admin aliases applied) so the model reuses an existing name instead of inventing a new description. History was re-scored this way: Thaksheel went from 4 project names to 1, and Reid from 5 to 1. `project_aliases` lets admins merge leftover variants per member (UI in Phase 5).
+- Classification rules (confirmed by organizers):
+  - Shipped requires evidence.
+  - Introductions are always chatter.
+  - Weekly goal posts are progress updates, and only substance ≥ 2 earns points.
+  - Sharing a useful article, link or tool is `help_given` in any channel.
+  - The classifier also extracts the `project` name, so a shipped post counts once per member per project (names are normalized, e.g. "C-art-ion" = "Cartion", and resolved through `project_aliases`).
+- **Shipped needs a human yes:** the model only outputs `shipped_candidate`. Each scoring run queues candidates in `shipped_approvals` as `pending`.
+  - Until an exec member decides, the post counts as a progress update at its scored substance (`effectiveCategory()` in `lib/scoring/shipped.ts`).
+  - "Yes, shipped" makes it `shipped`; "No, just progress" keeps it as progress.
+  - Admins can also queue a message the model missed (`npm run flag-shipped -- <message id>`, priority 100 by default). Henry's Muggy post was flagged this way and is first in the queue.
 - Uses the regular Messages API for now. Requests are plain `MessageCreateParamsNonStreaming` run through a swappable executor (`lib/scoring/score-messages.ts`), so moving to the Batch API (50% cheaper) only means adding a batch executor.
 - Messages with no valid result (refusal, truncation, bad JSON) stay unscored and are retried next run.
 - Skip messages under 15 characters, bot or system messages, and messages from excluded (exec board) members, so they cost nothing
@@ -130,6 +155,8 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 ### Phase 3: Attendance (organizer-only)
 - `/admin/events`: create and edit events
 - `/admin/checkin/[eventId]`: a mobile-first grid of member avatars with names; tap to mark someone present (optimistic UI), plus search. Exec board members are hidden by default, and no attendance rows are created for them.
+  - A "🎤 Demoed" toggle next to each attendee. Turning it on awards a `demo` bonus at `BONUS.demoPoints` (an admin can change the amount) and marks the person present. Turning it off revokes the bonus.
+- `/admin/bonus`: award points of any type to a member, with a required reason, an optional event and an amount (prefilled with 30 for demos). Below the form is the full log (who, what, points, reason, awarded by, when, revoked by), with an Undo button that revokes the award.
 - `scripts/import-attendance.ts`: imports your historical CSV, fuzzy-matching names to members, and prints any it couldn't match. Rows for excluded members are skipped and reported.
 - **Done when:** an organizer can take attendance for 30 people in under a minute on a phone.
 
@@ -138,13 +165,15 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 - `lib/scoring/compute.ts` → `score_snapshots` for the current month and all time; `POST /api/cron/compute-scores`. It only computes for `ranked_members` and ranks with `rankMembers()`.
 - Pages:
   - `/leaderboard`: top-3 podium (animated), a full ranked list with rank change ▲▼, a month / all-time toggle, and filters
-  - `/builders/[id]`: profile with score breakdown, activity heatmap, streak 🔥, badges, recent updates (with Claude's summaries), and events attended
+  - `/builders/[id]`: profile with score breakdown (bonus points as their own line), activity heatmap, streak 🔥, badges, recent updates (with Claude's summaries), events attended, and bonus awards with their reasons ("🎤 Demoed at Hack Night +30")
   - `/stats`: group-wide charts (updates per week, attendance trend, most active days and hours), counting only `ranked_members`
+  - `/admin/shipped` (admin area): the shipped review queue (`shipped_review_queue`, highest priority first, then oldest). Each card shows the message, attachments, member, project and Claude's summary, with **"Yes, shipped"** and **"No, just progress"** buttons that record `decided_by` / `decided_at`. Also a "Flag for review" action on any message, and a history of decisions that an admin can change.
   - Exec board members don't appear on the leaderboard and have no score breakdown, streak or badges on their profiles
 - **Done when:** a logged-in member sees real rankings, and a logged-out visitor sees nothing.
 
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)
+- Project aliases (on `/admin/members/[id]`): list each member's project names with message counts, and merge variants into one canonical name (writes `project_aliases`). Shipped counting and the classifier's known-projects context pick up aliases automatically.
 - Don't count GitHub activity for excluded members
 - `lib/github.ts`: a GraphQL `contributionsCollection(from, to)` query per user for daily commit counts and PRs
 - `POST /api/cron/sync-github` (nightly)
@@ -158,6 +187,7 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
   - **Night Owl**: 5+ updates posted after midnight
   - **Crowd Favorite**: most likes in a month
   - **Helper**: 5+ `help_given`
+  - **Demo Day** 🎤: demoed at 3+ different events (`BADGES.demoDayMinDemos`; the badge row is already seeded, and `earnsDemoDayBadge()` is in `lib/scoring/bonus.ts`)
 - `/admin/awards`: the month's top 5 rankable members with breakdowns (exec board can't be candidates); an admin picks the winner and writes a note
 - `/hall-of-fame`: past winners
 - **Done when:** badges appear automatically and an admin can crown a Builder of the Month.

@@ -17,9 +17,11 @@ export const CLASSIFIER = {
   pricing: { input: 0.1, output: 0.5, cacheWrite: 0.125, cacheRead: 0.01 },
 } as const;
 
+// The model never awards "shipped" directly: it flags shipped_candidate, which
+// counts as progress until an exec member approves it (shipped_approvals).
 export const CATEGORIES = [
   "progress_update",
-  "shipped",
+  "shipped_candidate",
   "help_given",
   "event_related",
   "chatter",
@@ -28,6 +30,10 @@ export type Category = (typeof CATEGORIES)[number];
 
 export type ClassifiableMessage = {
   id: string;
+  memberId: string;
+  createdAt: string;
+  /** Project names already recorded for this author before this message. */
+  authorProjects: string[];
   text: string;
   channel: string;
   hasMedia: boolean;
@@ -72,8 +78,8 @@ For each message, return its category, substance, summary, and project.
 
 Categories:
 - progress_update: the author reports work on their own project: what they did, results, problems they hit, or a goal or plan for it. Weekly goal posts count. So does explaining how their own project works.
-- shipped: the author shows or announces something working that others can see or use. Evidence is required: a live link, a demo video or screenshots of it working, or an explicit statement that it is live, launched, released, or available to users (for example "the app is live on the App Store"). If the message is mainly a weekly goal but states the product is live, it is still shipped. Plans, research findings, and things described only as "built" or "running" with no evidence are progress_update.
-- help_given: the author gives help to someone else: answers a question, gives feedback or suggestions on another member's project, offers relevant experience, or shares a tool, tutorial, or resource useful for building. Asking someone a question is not help_given.
+- shipped_candidate: the author may have shipped something that others can see or use. An organizer reviews every candidate, so flag anything plausible. Evidence is required: a live link, a demo video or screenshots of it working, or an explicit statement that it is live, launched, released, or available to users (for example "the app is live on the App Store"). If the message is mainly a weekly goal but states the product is live, it is still a candidate. Plans, research findings, and things described only as "built" or "running" with no link, media, or launch statement are progress_update.
+- help_given: the author gives help to someone else: answers a question, gives feedback or suggestions on another member's project, or offers relevant experience. Sharing a useful article, link, tool, tutorial, or resource with the group is help_given in any channel, even with a short comment like "thought this was interesting". Asking someone a question is not help_given.
 - event_related: announcing or organizing a meeting or event: times, places, RSVPs, reminders, schedule changes. A member saying they can't attend, or asking what they missed, is chatter.
 - chatter: everything else: greetings, introductions, reactions, hype, jokes, or questions that don't help anyone.
 
@@ -87,9 +93,9 @@ Substance (how much concrete content, 0-3):
 
 Summary: one neutral sentence of at most 15 words saying what the author did or said. Third person, no names (for example: "Raised model accuracy from 60% to 85% and is now improving data labeling.").
 
-Project: the name of the author's own project that the message is about, exactly as the author writes it (for example "Muggy" or "HawkHousing"). If the project is unnamed, use a short lowercase description of it instead ("ai budgeting app", "basketball coaching ai"). Use an empty string when the message isn't about the author's own project, such as help for someone else, events, or chatter.
+Project: the author's own project that the message is about. Each message lists the author's known projects (author_projects) from earlier messages. If the message is about one of them, return that name exactly as listed, even if the author describes it differently this time. Otherwise use the name the author writes (for example "Muggy" or "HawkHousing"), or if it's unnamed, a short lowercase description ("ai budgeting app"). Messages in this batch with the same author key are by the same person, so keep their project names consistent. Use an empty string when the message isn't about the author's own project, such as help for someone else, events, or chatter.
 
-Each message comes with its channel, whether an image or video is attached, and, for replies, the text it replies to. Classify only the author's own message; the reply text is context.
+Each message comes with an anonymous author key, the author's known projects, its channel, whether an image or video is attached, and, for replies, the text it replies to. Classify only the author's own message; the reply text is context.
 
 Return exactly one result per message, using its ref.`;
 
@@ -122,8 +128,19 @@ const REPLY_CONTEXT_CHARS = 300;
 export function buildClassifyRequest(
   batch: ClassifiableMessage[],
 ): Anthropic.MessageCreateParamsNonStreaming {
+  // Anonymous per-batch author keys (a1, a2, ...): links messages by the same
+  // person without sending names.
+  const authorKeys = new Map<string, string>();
+  for (const m of batch) {
+    if (!authorKeys.has(m.memberId)) {
+      authorKeys.set(m.memberId, `a${authorKeys.size + 1}`);
+    }
+  }
+
   const items = batch.map((m, i) => ({
     ref: `m${i + 1}`,
+    author: authorKeys.get(m.memberId),
+    author_projects: m.authorProjects,
     channel: m.channel,
     has_media: m.hasMedia,
     ...(m.replyToText

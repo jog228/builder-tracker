@@ -1,5 +1,5 @@
 {
-  "_readme": "Hand-labeled eval set for lib/scoring/classify.ts. Ids only: message text stays in Supabase, not git. Exec board members' messages are left out (and replaced if someone joins the exec board) because they're never scored. Run: npm run eval:classifier",
+  "_readme": "Hand-labeled eval set for lib/scoring/classify.ts. Ids only: message text stays in Supabase, not git. Exec board members' messages are left out (and replaced if someone joins the exec board) because they're never scored. Run: npm run eval:classifier Shipped labels are 'shipped_candidate' (the model only flags; an exec approves).",
   "_status": "Reviewed by organizer 2026-10-22",
   "labels": [
     {
@@ -10,13 +10,13 @@
     },
     {
       "id": "179156860623479186",
-      "category": "shipped",
+      "category": "shipped_candidate",
       "substance": 3,
       "note": "built a working app, attached demo, lessons learned"
     },
     {
       "id": "179126511487247758",
-      "category": "shipped",
+      "category": "shipped_candidate",
       "substance": 2,
       "note": "demo video of existing app + goal"
     },
@@ -40,7 +40,7 @@
     },
     {
       "id": "179124365249684379",
-      "category": "shipped",
+      "category": "shipped_candidate",
       "substance": 2,
       "note": "explicit 'iOS app is live' launch (organizer correction)"
     },
@@ -96,7 +96,7 @@
       "id": "178985852772800461",
       "category": "help_given",
       "substance": 1,
-      "note": "shares an article"
+      "note": "shares an article: resource sharing is help_given in any channel (organizer rule)"
     },
     {
       "id": "179208530805129802",
