@@ -3,11 +3,11 @@ import { plural, shortDate } from "@/lib/format";
 
 const DAY = 86_400_000;
 const LEVELS = [
-  "bg-white/[0.05]",
-  "bg-orange-500/30",
-  "bg-orange-500/55",
-  "bg-orange-400/80",
-  "bg-amber-300",
+  "bg-concrete",
+  "bg-safety/35",
+  "bg-safety/70",
+  "bg-safety",
+  "bg-ink",
 ];
 
 /** GitHub-style grid of messages per day (club time), Monday at the top. */
@@ -49,16 +49,16 @@ export function ActivityHeatmap({
                     ? undefined
                     : `${plural(c.count, "message")} on ${shortDate(`${c.date}T12:00:00Z`)}`
                 }
-                className={`size-3.5 rounded-[4px] ${c.future ? "opacity-0" : LEVELS[level(c.count)]}`}
+                className={`border-rule size-3.5 border ${c.future ? "opacity-0" : LEVELS[level(c.count)]}`}
               />
             ))}
           </div>
         ))}
       </div>
-      <div className="text-muted-foreground mt-2 flex items-center justify-end gap-1 text-[10px]">
+      <div className="text-slate mt-2 flex items-center justify-end gap-1 text-xs font-semibold uppercase">
         Less{" "}
         {LEVELS.map((l) => (
-          <span key={l} className={`size-2.5 rounded-[3px] ${l}`} />
+          <span key={l} className={`border-rule size-3 border ${l}`} />
         ))}{" "}
         More
       </div>

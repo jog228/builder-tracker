@@ -10,19 +10,20 @@ export function RankChange({
 }) {
   if (prevRank === null) {
     return (
-      <span className="text-muted-foreground/60 text-xs font-medium">new</span>
+      <span className="text-slate text-xs font-bold tracking-wider uppercase">
+        new
+      </span>
     );
   }
   const delta = prevRank - rank;
-  if (delta === 0)
-    return <span className="text-muted-foreground/60 text-xs">–</span>;
+  if (delta === 0) return <span className="text-slate font-bold">–</span>;
   return (
     <span
       className={cn(
-        "tabular inline-flex items-center gap-0.5 text-xs font-semibold",
-        delta > 0 ? "text-emerald-400" : "text-rose-400",
+        "tabular inline-flex items-center gap-0.5 font-bold",
+        delta > 0 ? "text-ok" : "text-bad",
       )}
-      title={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} since ${delta > 0 ? "yesterday" : "yesterday"}`}
+      title={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} since yesterday`}
     >
       {delta > 0 ? "▲" : "▼"}
       {Math.abs(delta)}
@@ -30,7 +31,7 @@ export function RankChange({
   );
 }
 
-/** 🔥 with the current weekly streak. Nothing when there's no streak. */
+/** Current weekly streak as "3 WK". Nothing when there's no streak. */
 export function Streak({
   weeks,
   size = "sm",
@@ -42,13 +43,12 @@ export function Streak({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 font-semibold text-orange-300",
-        size === "lg" ? "text-lg" : "text-sm",
+        "tabular font-semibold whitespace-nowrap uppercase",
+        size === "lg" ? "text-lg" : "text-base",
       )}
       title={`${weeks}-week update streak`}
     >
-      <span className={weeks >= 2 ? "animate-flicker" : undefined}>🔥</span>
-      <span className="tabular">{weeks}</span>
+      {weeks} wk
     </span>
   );
 }
@@ -62,10 +62,7 @@ export function Card({
 }) {
   return (
     <section
-      className={cn(
-        "bg-card/80 rounded-2xl border p-5 shadow-xl shadow-black/20 backdrop-blur",
-        className,
-      )}
+      className={cn("bg-paper border-ink border-[3px] p-4 sm:p-6", className)}
     >
       {children}
     </section>
@@ -80,11 +77,15 @@ export function SectionTitle({
   hint?: React.ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-baseline justify-between gap-3">
-      <h2 className="text-muted-foreground text-sm font-semibold tracking-wide uppercase">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <h2 className="font-display text-2xl leading-none uppercase sm:text-[1.75rem]">
         {children}
       </h2>
-      {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
+      {hint && (
+        <span className="text-slate text-sm font-semibold tracking-wider uppercase">
+          {hint}
+        </span>
+      )}
     </div>
   );
 }
@@ -97,7 +98,7 @@ export function EmptyState({
   children: React.ReactNode;
 }) {
   return (
-    <div className="text-muted-foreground flex flex-col items-center gap-2 rounded-xl border border-dashed py-8 text-center text-sm">
+    <div className="border-dash text-slate flex flex-col items-center gap-2 border-2 border-dashed px-4 py-8 text-center">
       <span className="text-2xl">{icon}</span>
       {children}
     </div>
@@ -107,22 +108,22 @@ export function EmptyState({
 const CATEGORY_STYLES: Record<string, { label: string; className: string }> = {
   progress_update: {
     label: "Progress",
-    className: "bg-sky-400/15 text-sky-300",
+    className: "border-ink bg-steel/35",
   },
   shipped_candidate: {
     label: "Shipped?",
-    className: "bg-amber-400/15 text-amber-300",
+    className: "border-rust text-rust",
   },
   shipped: {
-    label: "🚀 Shipped",
-    className: "bg-emerald-400/15 text-emerald-300",
+    label: "Shipped",
+    className: "border-ok bg-ok text-paper",
   },
   help_given: {
     label: "Helped",
-    className: "bg-violet-400/15 text-violet-300",
+    className: "border-ink bg-safety",
   },
-  event_related: { label: "Event", className: "bg-zinc-400/15 text-zinc-300" },
-  chatter: { label: "Chatter", className: "bg-zinc-400/10 text-zinc-400" },
+  event_related: { label: "Event", className: "border-ink" },
+  chatter: { label: "Chatter", className: "border-dash text-slate" },
 };
 
 export function CategoryChip({ category }: { category: string }) {
@@ -130,7 +131,7 @@ export function CategoryChip({ category }: { category: string }) {
   return (
     <span
       className={cn(
-        "rounded-full px-2 py-0.5 text-xs font-medium",
+        "border-2 px-1.5 py-px text-xs font-bold tracking-wider uppercase",
         s.className,
       )}
     >
@@ -138,3 +139,11 @@ export function CategoryChip({ category }: { category: string }) {
     </span>
   );
 }
+
+/** Square toggle used for period switches and filters. */
+export const toggleClass = (active: boolean, size: "md" | "sm" = "md") =>
+  cn(
+    "border-ink inline-flex items-center justify-center border-2 font-bold tracking-[0.08em] whitespace-nowrap uppercase transition-colors",
+    size === "md" ? "min-h-12 px-5" : "min-h-9 px-3 text-sm",
+    active ? "bg-safety text-[#111]" : "hover:bg-paper",
+  );

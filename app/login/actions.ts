@@ -1,8 +1,30 @@
 "use server";
 
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { findAllowedMember, normalizeEmail } from "@/lib/auth";
+import { ALLOWED_DOMAIN } from "@/lib/auth-rules";
 import { createClient } from "@/lib/supabase/server";
+
+async function origin() {
+  const h = await headers();
+  return h.get("origin") ?? `http://${h.get("host")}`;
+}
+
+/** Starts Google sign-in. /auth/callback enforces lehigh.edu and the roster. */
+export async function signInWithGoogle() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${await origin()}/auth/callback`,
+      // hd only pre-selects Lehigh accounts in Google's picker; the callback checks.
+      queryParams: { hd: ALLOWED_DOMAIN, prompt: "select_account" },
+    },
+  });
+  if (error || !data.url) redirect("/login?error=google");
+  redirect(data.url);
+}
 
 export type LoginState = {
   status: "idle" | "sent" | "error";
@@ -21,22 +43,21 @@ export async function sendMagicLink(
     };
   }
 
-  // Only emails on the member list get a link (and an account).
-  if (!(await findAllowedMember(email))) {
+  // Backup login for the exec board only; members use Google.
+  const member = await findAllowedMember(email);
+  if (member?.role !== "admin") {
     return {
       status: "error",
       message:
-        "That email isn't on the Builder Society member list. Ask an organizer to add it.",
+        "Email links are only for exec board members. Use “Sign in with Google” with your Lehigh account.",
     };
   }
 
-  const h = await headers();
-  const origin = h.get("origin") ?? `http://${h.get("host")}`;
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${await origin()}/auth/callback`,
       shouldCreateUser: true,
     },
   });

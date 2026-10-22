@@ -9,10 +9,10 @@ export function FlagShippedButton({ messageId }: { messageId: string }) {
     <button
       onClick={() => start(() => flagShipped(messageId))}
       disabled={pending}
-      className="text-muted-foreground rounded-full border px-2 py-0.5 text-[11px] hover:border-amber-300/50 hover:text-amber-300 disabled:opacity-50"
-      title="Admins: send this post to the shipped review queue"
+      className="border-ink text-ink hover:border-rust hover:text-rust min-h-8 border-2 px-2 text-xs font-bold tracking-wider uppercase disabled:opacity-50"
+      title="Admins: send this post to the permits (shipped review) queue"
     >
-      {pending ? "Flagging…" : "🚩 Flag as shipped"}
+      {pending ? "Flagging…" : "Flag for permit"}
     </button>
   );
 }

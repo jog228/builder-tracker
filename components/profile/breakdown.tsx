@@ -34,7 +34,7 @@ export function ScoreBreakdown({
 }) {
   const keys = Object.keys(COMPONENT_LABELS) as (keyof Breakdown)[];
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-3.5">
       {keys.map((k) => {
         const c = breakdown[k];
         const pct = c.cap
@@ -44,38 +44,36 @@ export function ScoreBreakdown({
             : 0;
         return (
           <li key={k}>
-            <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className={c.points ? "" : "text-muted-foreground"}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className={c.points ? "font-semibold" : "text-slate"}>
                 {ICONS[k]} {COMPONENT_LABELS[k]}
-                <span className="text-muted-foreground ml-2 text-xs">
+                <span className="text-slate ml-2 text-sm font-normal">
                   {c.count} {UNITS[k]}
                   {c.count === 1 ? "" : "s"}
                 </span>
               </span>
-              <span className="tabular font-semibold">
+              <span className="tabular font-bold">
                 {c.points}
                 {monthly && c.cap !== null && (
-                  <span className="text-muted-foreground text-xs font-normal">
+                  <span className="text-slate text-sm font-normal">
                     {" "}
                     / {c.cap}
                   </span>
                 )}
               </span>
             </div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/5">
+            <div className="border-ink bg-concrete mt-1 h-3 overflow-hidden border-2">
               <div
-                className={`h-full rounded-full ${c.cap && c.points >= c.cap ? "bg-emerald-400" : "to-primary bg-gradient-to-r from-violet-400"}`}
+                className={`floors-fill h-full ${c.cap && c.points >= c.cap ? "bg-ok" : "bg-safety"}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
             {k === "bonus" && breakdown.bonus.lines.length > 0 && (
-              <ul className="text-muted-foreground mt-2 flex flex-col gap-1 pl-6 text-xs">
+              <ul className="text-slate mt-2 flex flex-col gap-1 pl-6 text-sm">
                 {breakdown.bonus.lines.map((l, i) => (
                   <li key={i}>
                     {l.label}{" "}
-                    <span className="text-primary font-semibold">
-                      +{l.points}
-                    </span>
+                    <span className="text-ink font-bold">+{l.points}</span>
                   </li>
                 ))}
               </ul>

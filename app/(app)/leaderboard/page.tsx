@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Card, EmptyState } from "@/components/bs/bits";
-import { Podium } from "@/components/leaderboard/podium";
+import { EmptyState, toggleClass } from "@/components/bs/bits";
+import { Eyebrow, PageTitle } from "@/components/bs/site";
+import { CraneSign } from "@/components/leaderboard/crane-sign";
 import { RankedList } from "@/components/leaderboard/ranked-list";
 import { requireViewer } from "@/lib/auth";
 import { getLeaderboard, type Period } from "@/lib/data/leaderboard";
 import { monthLabel, plural, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Leaderboard · Builder Society" };
 
@@ -21,41 +21,45 @@ export default async function LeaderboardPage({
   const me = rows.find((r) => r.memberId === viewer.memberId);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-primary text-sm font-medium">
+    <div className="flex flex-col gap-8 sm:gap-10">
+      <section className="flex flex-wrap items-start gap-10">
+        <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-4">
+          <Eyebrow>
+            Daily site report ·{" "}
             {period === "all" ? "All time" : monthLabel(periodKey)}
+          </Eyebrow>
+          <PageTitle>Top builders on site</PageTitle>
+          <p className="text-slate max-w-[560px] text-xl leading-snug">
+            Progress posts pour the foundation. Ships, demos, help, likes and
+            streaks raise the frame.
+            {updatedAt && <> Report updated {timeAgo(updatedAt)}.</>}
           </p>
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
-            Who&apos;s building the most?
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Points come from progress posts, shipping, helping others, likes,
-            streaks and bonuses.
-            {updatedAt && <> Updated {timeAgo(updatedAt)}.</>}
-          </p>
+          <div role="group" aria-label="Period" className="flex gap-2">
+            {(["month", "all"] as const).map((p) => (
+              <Link
+                key={p}
+                href={p === "all" ? "/leaderboard?period=all" : "/leaderboard"}
+                aria-current={p === period ? "page" : undefined}
+                className={toggleClass(p === period)}
+              >
+                {p === "all" ? "All time" : "This month"}
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="flex rounded-full border bg-white/5 p-1 text-sm">
-          {(["month", "all"] as const).map((p) => (
-            <Link
-              key={p}
-              href={p === "all" ? "/leaderboard?period=all" : "/leaderboard"}
-              className={cn(
-                "rounded-full px-4 py-1.5 font-medium transition-colors",
-                p === period
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {p === "all" ? "All time" : "This month"}
-            </Link>
-          ))}
-        </div>
-      </div>
+        {rows[0] && (
+          <div className="flex-[1_1_300px] sm:flex-[1_1_340px]">
+            <CraneSign
+              leader={rows[0]}
+              runnerUp={rows[1]}
+              allTime={period === "all"}
+            />
+          </div>
+        )}
+      </section>
 
       {viewer.isExcluded && (
-        <div className="rounded-xl border border-violet-400/30 bg-violet-400/10 px-4 py-3 text-sm text-violet-200">
+        <div className="bg-paper border-ink border-[3px] border-l-[12px] px-4 py-3">
           You&apos;re on the exec board, so you&apos;re not ranked. Your posts
           still sync, but they never count toward scores.
         </div>
@@ -67,16 +71,11 @@ export default async function LeaderboardPage({
         </EmptyState>
       ) : (
         <>
-          <Card className="overflow-hidden pb-0">
-            <Podium top={rows.slice(0, 3)} />
-          </Card>
-
           {me && (
-            <p className="text-muted-foreground text-center text-sm">
-              You&apos;re{" "}
-              <span className="text-foreground font-semibold">#{me.rank}</span>{" "}
+            <p className="text-slate text-center text-lg">
+              You&apos;re <span className="text-ink font-bold">#{me.rank}</span>{" "}
               of {rows.length} with{" "}
-              <span className="text-primary font-semibold">
+              <span className="text-ink bg-safety px-1 font-bold">
                 {plural(me.total, "point")}
               </span>
               .

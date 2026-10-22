@@ -4,6 +4,8 @@ import {
   SimpleBars,
   WeeklyChart,
 } from "@/components/stats/charts";
+import { CountUp } from "@/components/bs/count-up";
+import { Eyebrow, PageTitle } from "@/components/bs/site";
 import { requireViewer } from "@/lib/auth";
 import { getStats } from "@/lib/data/stats";
 
@@ -13,35 +15,41 @@ export default async function StatsPage() {
   await requireViewer();
   const s = await getStats();
   const tiles = [
-    { label: "Updates this month", value: s.tiles.monthUpdates, icon: "📈" },
+    { label: "Updates logged this month", value: s.tiles.monthUpdates },
     {
-      label: "Builders posting this month",
-      value: `${s.tiles.monthBuilders}/${s.tiles.rankable}`,
-      icon: "🧑‍💻",
+      label: "Crew posting this month",
+      value: s.tiles.monthBuilders,
+      of: s.tiles.rankable,
     },
-    { label: "Projects shipped", value: s.tiles.shipped, icon: "🚀" },
+    { label: "Structures shipped", value: s.tiles.shipped },
   ];
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-black tracking-tight">
-          The group at a glance
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <Eyebrow>Site statistics</Eyebrow>
+        <PageTitle className="mt-3">The crew at a glance</PageTitle>
+        <p className="text-slate mt-3 text-lg">
           Counts builders only; exec board activity isn&apos;t included.
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <section className="bg-ink text-paper grid grid-cols-1 gap-5 p-5 sm:grid-cols-3 sm:p-6">
+        <h2 className="font-display text-safety text-2xl uppercase sm:col-span-3">
+          Site board
+        </h2>
         {tiles.map((t) => (
-          <Card key={t.label} className="p-4">
-            <div className="text-2xl">{t.icon}</div>
-            <div className="tabular mt-2 text-3xl font-black">{t.value}</div>
-            <div className="text-muted-foreground text-sm">{t.label}</div>
-          </Card>
+          <div key={t.label} className="flex flex-col">
+            <span className="font-display text-5xl leading-tight">
+              <CountUp value={t.value} />
+              {t.of !== undefined && (
+                <span className="text-steel text-3xl">/{t.of}</span>
+              )}
+            </span>
+            <span className="tracking-[0.1em] uppercase">{t.label}</span>
+          </div>
         ))}
-      </div>
+      </section>
 
       <Card>
         <SectionTitle hint="last 10 weeks">Updates per week</SectionTitle>

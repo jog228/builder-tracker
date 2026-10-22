@@ -11,24 +11,31 @@ export function NavLinks({
 }) {
   const path = usePathname();
   return (
-    <nav className="flex items-center gap-1 overflow-x-auto">
+    <nav
+      aria-label="Main"
+      className="flex flex-wrap gap-1.5 text-[0.9rem] font-bold tracking-[0.08em] uppercase"
+    >
       {links.map((l) => {
         const active = path === l.href || path.startsWith(`${l.href}/`);
         return (
           <Link
             key={l.href}
             href={l.href}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "relative rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
-              active
-                ? "text-foreground bg-white/10"
-                : "text-muted-foreground hover:text-foreground",
+              "border-ink inline-flex min-h-11 items-center border-2 px-3 whitespace-nowrap transition-colors sm:px-4",
+              active ? "bg-ink text-paper" : "hover:bg-paper",
             )}
           >
             {l.label}
             {!!l.badge && (
-              <span className="bg-primary text-primary-foreground tabular ml-1.5 rounded-full px-1.5 py-px text-[10px] font-bold">
-                {l.badge}
+              <span
+                className={cn(
+                  "tabular ml-1.5",
+                  active ? "text-safety" : "text-rust",
+                )}
+              >
+                ({l.badge})
               </span>
             )}
           </Link>

@@ -21,6 +21,8 @@
 /build
 
 # misc
+# member roster and other personal data (never commit)
+/data/
 .DS_Store
 *.pem
 

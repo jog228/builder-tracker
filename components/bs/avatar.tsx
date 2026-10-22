@@ -25,7 +25,7 @@ export function MemberAvatar({
   return (
     <span
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold",
+        "border-ink relative inline-flex shrink-0 items-center justify-center overflow-hidden border-2 font-bold",
         className,
       )}
       style={{

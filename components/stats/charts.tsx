@@ -13,20 +13,21 @@ import {
 } from "recharts";
 
 const AXIS = {
-  stroke: "oklch(0.72 0.03 270)",
-  fontSize: 11,
+  stroke: "var(--slate)",
+  fontSize: 13,
   tickLine: false,
   axisLine: false,
 } as const;
-const GRID = <CartesianGrid vertical={false} stroke="oklch(1 0 0 / 6%)" />;
+const GRID = <CartesianGrid vertical={false} stroke="var(--rule)" />;
 const TOOLTIP = {
   contentStyle: {
-    background: "oklch(0.22 0.03 270)",
-    border: "1px solid oklch(1 0 0 / 12%)",
-    borderRadius: 12,
-    fontSize: 12,
+    background: "var(--paper)",
+    border: "2px solid var(--ink)",
+    borderRadius: 0,
+    color: "var(--ink)",
+    fontSize: 14,
   },
-  cursor: { fill: "oklch(1 0 0 / 4%)" },
+  cursor: { fill: "rgb(27 42 65 / 8%)" },
 };
 
 export function WeeklyChart({
@@ -45,14 +46,15 @@ export function WeeklyChart({
           dataKey="updates"
           name="Updates"
           fill="var(--chart-1)"
-          radius={[6, 6, 0, 0]}
+          stroke="var(--ink)"
+          strokeWidth={2}
         />
         <Line
           dataKey="builders"
           name="Builders posting"
           stroke="var(--chart-2)"
           strokeWidth={2.5}
-          dot={{ r: 3 }}
+          dot={{ r: 3.5, fill: "var(--chart-2)" }}
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -81,7 +83,8 @@ export function SimpleBars({
           dataKey="messages"
           name="Messages"
           fill={color}
-          radius={[5, 5, 0, 0]}
+          stroke="var(--ink)"
+          strokeWidth={2}
         />
       </BarChart>
     </ResponsiveContainer>
@@ -104,7 +107,8 @@ export function AttendanceChart({
           dataKey="attended"
           name="Attended"
           fill="var(--chart-5)"
-          radius={[5, 5, 0, 0]}
+          stroke="var(--ink)"
+          strokeWidth={2}
         />
       </BarChart>
     </ResponsiveContainer>

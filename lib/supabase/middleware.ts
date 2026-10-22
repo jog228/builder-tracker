@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Paths that work without a session.
-const PUBLIC = [/^\/login/, /^\/auth\//, /^\/api\/cron\//];
+const PUBLIC = [/^\/login/, /^\/not-a-member/, /^\/auth\//, /^\/api\/cron\//];
 
 /** Refreshes the Supabase session cookie and sends logged-out visitors to /login. */
 export async function updateSession(request: NextRequest) {

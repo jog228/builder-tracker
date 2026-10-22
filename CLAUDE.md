@@ -21,6 +21,7 @@ at a time, and stop for review after each phase.
 - `npm run groupme:list-groups` / `groupme:backfill` / `groupme:sync` / `groupme:purge-raw`
 - `npm run score-messages` / `npm run eval:classifier`: AI message scoring and its eval (both call the Anthropic API and cost money)
 - `npm run compute-scores`: recompute leaderboard snapshots
+- `npm run roster:import -- [data/roster.csv] [--write]`: match roster emails to members by GroupMe name (dry run unless `--write`). `data/` is gitignored.
 - `npm run set-email -- <GroupMe id | name> <email | --clear>`: allow a member to log in
 - `npm run login-link -- <email>`: DEV ONLY, prints a one-time login link (no email sent)
 - `npm run flag-shipped -- <message id> [--priority N]`: queue a message for shipped review
@@ -46,8 +47,8 @@ Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they ca
 - Message scoring: `lib/scoring/classify.ts` is pure (prompt, request, parsing, cost); `lib/scoring/score-messages.ts` loads, runs and saves results through a swappable `ClassifyExecutor` (realtime now, Batch API later). Never send member names to the model.
 - Bonus points (`bonus_points`): manual, uncapped, demo default in `lib/scoring/config.ts`. A demo counts once per member per event and also marks attendance (DB trigger). Undo = revoke (`revoked_at`), never delete. Counting rules live in `lib/scoring/bonus.ts`.
 - Shipped is never awarded by the model: it outputs `shipped_candidate`, queued in `shipped_approvals`; only an exec "yes" makes it shipped (`effectiveCategory()`). Project names go through `project_aliases` (`lib/scoring/projects.ts`). Classifier batches run chronologically so `author_projects` carries forward.
-- Auth: allowlist by `members.email`. `getViewer()` / `requireViewer()` / `requireAdmin()` in `lib/auth.ts`. Pages under `app/(app)/` are members-only via the layout + middleware. Read data with the user's session (RLS); use the secret-key client only in cron, scripts, and score recomputation.
-- UI: dark theme only (`<html class="dark">`, palette in `app/globals.css`). Shared bits in `components/bs/`; animation with `motion/react` (respect `useReducedMotion`); charts with Recharts.
+- Auth: Google sign-in (Supabase OAuth) for `@lehigh.edu` Workspace accounts (`hd` claim checked server-side), allowlisted by `members.email`. Email magic links are a backup for admins only (any member in local dev, for `login-link`). Rules are pure in `lib/auth-rules.ts`; `completeLogin()` links the auth user to the member by email after `/auth/callback` or `/auth/confirm`, and `getViewer()` re-checks them on every request. Lehigh accounts not on the roster go to `/not-a-member`. `getViewer()` / `requireViewer()` / `requireAdmin()` in `lib/auth.ts`. Pages under `app/(app)/` are members-only via the layout + middleware. Read data with the user's session (RLS); use the secret-key client only in cron, scripts, and score recomputation.
+- UI: light "Daylight Site Report" theme only (concrete `#E6E2D8`, navy ink `#1B2A41`, safety yellow `#F2B705`; tokens like `bg-ink` / `text-rust` in `app/globals.css`). Headlines `font-display` (Saira Stencil One), body Barlow Condensed. Square corners, 2-3px ink borders. Reference mockups live in `docs/design/` (not linted or formatted). Shared bits in `components/bs/` (`CountUp`, `FloorsBar`, `Stamp`, `CautionTape`); animation with `motion/react` (respect `useReducedMotion`); charts with Recharts.
 - `messages.liked_by` stores GroupMe user ids (likers may not be members); `messages.sender_groupme_id` allows re-mapping senders to members.
 
 ## Guardrails

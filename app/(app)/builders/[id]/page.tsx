@@ -7,8 +7,10 @@ import {
   EmptyState,
   RankChange,
   SectionTitle,
-  Streak,
+  toggleClass,
 } from "@/components/bs/bits";
+import { CountUp } from "@/components/bs/count-up";
+import { Eyebrow } from "@/components/bs/site";
 import { ScoreBreakdown } from "@/components/profile/breakdown";
 import { FlagShippedButton } from "@/components/profile/flag-button";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
@@ -41,9 +43,9 @@ export default async function BuilderPage({
     <div className="flex flex-col gap-6">
       <Link
         href="/leaderboard"
-        className="text-muted-foreground hover:text-foreground text-sm"
+        className="text-slate hover:text-rust self-start font-bold tracking-wider uppercase"
       >
-        ← Leaderboard
+        ← Progress schedule
       </Link>
 
       {/* Header */}
@@ -52,22 +54,23 @@ export default async function BuilderPage({
           name={member.display_name}
           url={member.avatar_url}
           size={96}
-          className="ring-primary/30 ring-4"
+          className="border-[3px] shadow-[6px_6px_0_var(--safety)]"
         />
-        <div className="flex-1 text-center sm:text-left">
-          <h1 className="text-3xl font-black tracking-tight">
+        <div className="min-w-0 flex-1 text-center sm:text-left">
+          <Eyebrow>Builder file</Eyebrow>
+          <h1 className="font-display mt-1 text-[clamp(2rem,7vw,3.25rem)] leading-none break-words uppercase">
             {member.display_name}
           </h1>
-          <div className="text-muted-foreground mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm sm:justify-start">
+          <div className="text-slate mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-lg sm:justify-start">
             {excluded ? (
-              <span className="rounded-full bg-violet-400/15 px-2.5 py-0.5 text-violet-200">
+              <span className="bg-ink text-paper px-2.5 py-0.5 font-bold tracking-wider uppercase">
                 Exec board · not ranked
               </span>
             ) : (
               <>
                 {streak.current > 0 && (
-                  <span className="flex items-center gap-1.5">
-                    <Streak weeks={streak.current} size="lg" /> week streak
+                  <span className="text-ink font-semibold">
+                    {streak.current}-week streak
                   </span>
                 )}
                 {streak.longest > 1 && (
@@ -78,7 +81,7 @@ export default async function BuilderPage({
           </div>
         </div>
         {!excluded && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid w-full grid-cols-2 gap-3 sm:w-auto">
             <RankStat
               label={monthLabel(monthKey(new Date())).split(" ")[0]}
               snap={p.month}
@@ -94,14 +97,15 @@ export default async function BuilderPage({
             <Card>
               <SectionTitle
                 hint={
-                  <span className="flex rounded-full border p-0.5">
+                  <span className="flex gap-1.5">
                     {[false, true].map((all) => (
                       <Link
                         key={String(all)}
                         href={all ? `?period=all` : "?"}
+                        aria-current={all === allTime ? "page" : undefined}
                         className={cn(
-                          "rounded-full px-2.5 py-0.5",
-                          all === allTime && "text-foreground bg-white/10",
+                          toggleClass(all === allTime, "sm"),
+                          "text-ink tracking-wider",
                         )}
                       >
                         {all ? "All time" : "Month"}
@@ -118,10 +122,12 @@ export default async function BuilderPage({
                     breakdown={shown.breakdown}
                     monthly={!allTime}
                   />
-                  <div className="mt-4 flex items-baseline justify-between border-t pt-3">
-                    <span className="text-muted-foreground text-sm">Total</span>
-                    <span className="tabular text-primary text-2xl font-black">
-                      {shown.total}
+                  <div className="border-ink mt-4 flex items-baseline justify-between border-t-[3px] pt-3">
+                    <span className="font-bold tracking-widest uppercase">
+                      Total
+                    </span>
+                    <span className="font-display text-3xl">
+                      <CountUp value={shown.total} />
                     </span>
                   </div>
                 </>
@@ -143,14 +149,14 @@ export default async function BuilderPage({
                   key={b.slug}
                   title={`${b.name}: ${b.description}${b.earned ? "" : " (locked)"}`}
                   className={cn(
-                    "flex flex-col items-center gap-1 rounded-xl border p-2 text-center",
+                    "border-ink flex flex-col items-center gap-1 border-2 p-2 text-center",
                     b.earned
-                      ? "border-primary/40 bg-primary/10"
-                      : "opacity-35 grayscale",
+                      ? "bg-safety"
+                      : "border-dash border-dashed opacity-45 grayscale",
                   )}
                 >
                   <span className="text-2xl">{b.icon}</span>
-                  <span className="text-[10px] leading-tight font-medium">
+                  <span className="text-xs leading-tight font-bold uppercase">
                     {b.name}
                   </span>
                 </div>
@@ -170,21 +176,19 @@ export default async function BuilderPage({
           <Card>
             <SectionTitle>Recent updates</SectionTitle>
             {p.updates.length ? (
-              <ul className="flex flex-col divide-y divide-white/5">
+              <ul className="divide-dash flex flex-col divide-y divide-dashed">
                 {p.updates.map((u) => (
                   <li key={u.id} className="py-3 first:pt-0 last:pb-0">
-                    <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+                    <div className="text-slate flex flex-wrap items-center gap-2 text-sm">
                       <CategoryChip category={u.category} />
                       {u.rawCategory === "shipped_candidate" &&
                         u.approval === "pending" && (
-                          <span className="text-amber-300/80">
+                          <span className="text-rust font-semibold">
                             awaiting exec review
                           </span>
                         )}
                       {u.project && (
-                        <span className="text-foreground/80 font-medium">
-                          {u.project}
-                        </span>
+                        <span className="text-ink font-bold">{u.project}</span>
                       )}
                       <span>{shortDate(u.createdAt)}</span>
                       {u.likes > 0 && <span>❤️ {u.likes}</span>}
@@ -197,9 +201,11 @@ export default async function BuilderPage({
                           </span>
                         )}
                     </div>
-                    <p className="mt-1.5 text-sm">{u.summary ?? u.text}</p>
-                    <details className="text-muted-foreground mt-1 text-xs">
-                      <summary className="hover:text-foreground cursor-pointer select-none">
+                    <p className="mt-1.5 text-lg leading-snug">
+                      {u.summary ?? u.text}
+                    </p>
+                    <details className="text-slate mt-1 text-sm">
+                      <summary className="hover:text-rust cursor-pointer font-semibold select-none">
                         Original post
                       </summary>
                       <p className="mt-1 whitespace-pre-line">{u.text}</p>
@@ -219,7 +225,7 @@ export default async function BuilderPage({
           {p.bonuses.length > 0 && (
             <Card>
               <SectionTitle>Bonus points</SectionTitle>
-              <ul className="flex flex-col gap-2 text-sm">
+              <ul className="flex flex-col gap-2">
                 {p.bonuses.map((b) => (
                   <li
                     key={b.id}
@@ -229,11 +235,11 @@ export default async function BuilderPage({
                       {b.type === "demo"
                         ? `🎤 Demoed at ${b.eventName ?? "an event"}`
                         : `🎁 ${b.reason}`}
-                      <span className="text-muted-foreground ml-2 text-xs">
+                      <span className="text-slate ml-2 text-sm">
                         {shortDate(b.awardedAt)}
                       </span>
                     </span>
-                    <span className="tabular text-primary font-semibold">
+                    <span className="font-display bg-safety px-1.5 text-lg">
                       +{b.points}
                     </span>
                   </li>
@@ -245,11 +251,11 @@ export default async function BuilderPage({
           <Card>
             <SectionTitle>Events attended</SectionTitle>
             {p.events.length ? (
-              <ul className="flex flex-col gap-2 text-sm">
+              <ul className="flex flex-col gap-2">
                 {p.events.map((e) => (
                   <li key={e.id} className="flex justify-between">
                     <span>{e.name}</span>
-                    <span className="text-muted-foreground">
+                    <span className="text-slate">
                       {shortDate(`${e.date}T12:00:00Z`)}
                     </span>
                   </li>
@@ -275,20 +281,20 @@ function RankStat({
   snap: ProfileSnapshot | null;
 }) {
   return (
-    <div className="min-w-28 rounded-xl border bg-white/[0.03] px-4 py-3 text-center">
-      <div className="text-muted-foreground text-xs">{label}</div>
+    <div className="border-ink bg-concrete min-w-28 border-2 px-4 py-3 text-center">
+      <div className="text-xs font-bold tracking-widest uppercase">{label}</div>
       {snap ? (
         <>
           <div className="flex items-center justify-center gap-1.5">
-            <span className="tabular text-2xl font-black">#{snap.rank}</span>
+            <span className="font-display text-3xl">#{snap.rank}</span>
             <RankChange rank={snap.rank} prevRank={snap.prevRank} />
           </div>
-          <div className="tabular text-muted-foreground text-xs">
+          <div className="tabular text-slate text-sm">
             {snap.total} pts · of {snap.of}
           </div>
         </>
       ) : (
-        <div className="text-muted-foreground text-2xl font-black">–</div>
+        <div className="text-slate font-display text-3xl">–</div>
       )}
     </div>
   );
