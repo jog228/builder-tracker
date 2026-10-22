@@ -184,6 +184,23 @@ describe("computeScores", () => {
     ).toBe(15 * 7);
   });
 
+  it("counts back-filled weekly meetings in the meeting's month", () => {
+    // Oct 1 (kickoff), 8 and 15 entered late still score in October, by the
+    // meeting date. A September 24 meeting counts only toward all-time.
+    const attendance = [
+      "2026-10-01",
+      "2026-10-08",
+      "2026-10-15",
+      "2026-09-24",
+    ].map((date) => ({ member_id: "ana", date, weight: 1 }));
+    const s = computeScores(input({ attendance }), NOW);
+    expect(snap(s, "ana").components.events).toMatchObject({
+      count: 3,
+      points: 45,
+    });
+    expect(snap(s, "ana", "all").components.events.count).toBe(4);
+  });
+
   it("all-time sums each month's capped points", () => {
     const messages = [
       ...Array.from({ length: 10 }, () =>

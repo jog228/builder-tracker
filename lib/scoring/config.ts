@@ -45,9 +45,14 @@ export const WEEKLY_MEETING = {
   /** Start time in TIME_ZONE, 24-hour "HH:MM". */
   time: "16:30",
   weight: 1,
-  /** How many past weeks the check-in week picker offers. */
-  pickerWeeks: 12,
 } as const;
+
+/**
+ * First day of the attendance season (club time). The check-in week picker
+ * starts at the first meeting on or after this date ("Kickoff") and never
+ * offers, creates or accepts check-ins for an earlier meeting.
+ */
+export const SEASON_START = "2026-10-01";
 
 /**
  * Builder of the Month (Phase 6): at month end the exec board picks the winner

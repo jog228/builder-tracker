@@ -97,6 +97,23 @@ describe("applyCheckin authorization (server layer)", () => {
     }
   });
 
+  it("refuses meetings from before the season", async () => {
+    const { store, writes } = fakeStore();
+    store.getEvent.mockResolvedValueOnce({
+      id: EVENT,
+      name: "Weekly Meeting",
+      date: "2026-09-24",
+      weekly: true,
+    });
+    const res = await applyCheckin(ADMIN, store, {
+      eventId: EVENT,
+      memberId: MEMBER,
+      target: { present: true, demo: false },
+    });
+    expect(res).toMatchObject({ ok: false, status: 409 });
+    expect(writes()).toBe(0);
+  });
+
   it("rejects malformed ids and unknown meetings", async () => {
     const { store, writes } = fakeStore();
     expect(

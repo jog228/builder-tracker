@@ -5,8 +5,9 @@ import { Icon } from "@/components/bs/icon";
 import { Eyebrow } from "@/components/bs/site";
 import {
   meetingDate,
-  meetingLabel,
+  isKickoff,
   meetingTimeLabel,
+  meetingTitle,
   pickerWeeks,
   resolveWeek,
 } from "@/lib/attendance/weeks";
@@ -44,9 +45,9 @@ export default async function CheckinPage({
           Crew sign-in
         </h1>
         <p className="text-slate mt-2 text-lg leading-snug">
-          {sheet.event.name} · {meetingLabel(sheet.event.date)} ·{" "}
-          {meetingTimeLabel()}. Tap a builder to sign them in (
-          {WEIGHTS.eventAttended.points} pts).{" "}
+          {isKickoff(sheet.event.date) ? "" : `${sheet.event.name} · `}
+          {meetingTitle(sheet.event.date)} · {meetingTimeLabel()}. Tap a builder
+          to sign them in ({WEIGHTS.eventAttended.points} pts).{" "}
           <Icon icon={MonitorPlay} tone="accent" /> Demo adds +
           {BONUS.demoPoints} and signs them in too.
         </p>
@@ -66,7 +67,7 @@ export default async function CheckinPage({
           options={weeks.map((w, n) => ({
             value: w,
             href: href(w),
-            label: `${n === 0 ? "This week · " : ""}${meetingLabel(meetingDate(w))}`,
+            label: `${n === 0 ? "This week · " : ""}${meetingTitle(meetingDate(w))}`,
           }))}
         />
         <WeekLink
@@ -77,7 +78,7 @@ export default async function CheckinPage({
       </nav>
       {i > 0 && (
         <p className="border-rust text-rust border-2 px-3 py-2 font-semibold">
-          Fixing a past week ({meetingLabel(sheet.event.date)}).{" "}
+          Fixing a past week ({meetingTitle(sheet.event.date)}).{" "}
           <Link href="/admin/checkin" className="underline">
             Back to this week
           </Link>

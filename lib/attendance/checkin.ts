@@ -1,6 +1,7 @@
 // Check-in core: authorize, validate and reconcile one member's row on the
 // sheet. The server action wires in the real store (the admin's own session,
 // so RLS applies too); tests use a fake one.
+import { inSeason } from "@/lib/attendance/weeks";
 import { BONUS } from "@/lib/scoring/config";
 
 export type CheckinTarget = { present: boolean; demo: boolean };
@@ -78,6 +79,12 @@ export async function applyCheckin(
   ]);
   if (!event?.weekly)
     return { ok: false, status: 404, error: "That meeting doesn't exist." };
+  if (!inSeason(event.date))
+    return {
+      ok: false,
+      status: 409,
+      error: "That meeting is before the season started.",
+    };
   if (!member)
     return { ok: false, status: 404, error: "That member doesn't exist." };
   if (member.excluded)
