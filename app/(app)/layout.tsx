@@ -26,7 +26,10 @@ export default async function AppLayout({
     { href: "/leaderboard", label: "Leaderboard" },
     { href: "/stats", label: "Stats" },
     ...(viewer.isAdmin
-      ? [{ href: "/admin/shipped", label: "Permits", badge: pending }]
+      ? [
+          { href: "/admin/checkin", label: "Sign-in" },
+          { href: "/admin/shipped", label: "Permits", badge: pending },
+        ]
       : []),
   ];
 

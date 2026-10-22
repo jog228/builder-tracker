@@ -32,3 +32,19 @@ export const BADGES = {
 
 /** Months and weeks (Monday start) are counted in the club's local time. */
 export const TIME_ZONE = "America/New_York";
+
+/**
+ * The one recurring event (Phase 3). /admin/checkin creates it for a week the
+ * first time an admin opens that week. Attending earns
+ * WEIGHTS.eventAttended.points × weight.
+ */
+export const WEEKLY_MEETING = {
+  name: "Weekly Meeting",
+  /** ISO weekday, Monday = 1 … Sunday = 7. Thursday, per the GroupMe announcements. */
+  weekday: 4,
+  /** Start time in TIME_ZONE, 24-hour "HH:MM". */
+  time: "16:30",
+  weight: 1,
+  /** How many past weeks the check-in week picker offers. */
+  pickerWeeks: 12,
+} as const;

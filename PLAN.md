@@ -11,7 +11,7 @@
 An internal, members-only web app that ranks Builder Society members by how much they build, **with zero effort from members**. It runs entirely in the background, pulling data from:
 
 1. **GroupMe**: progress updates, shipped projects, peer likes
-2. **Attendance**: an organizer taps names on a check-in page at each event (members do nothing)
+2. **Attendance**: an exec board admin taps names on a check-in page at each weekly meeting (members do nothing)
 3. **GitHub**: commits and PRs, using usernames an organizer links once
 4. **Claude Enterprise usage** (later, if per-user data is exportable)
 
@@ -38,7 +38,7 @@ Put all of these in `.env.local` and **never commit them** (`.env.local` stays i
 - [ ] `ANTHROPIC_API_KEY`
 - [ ] `GITHUB_TOKEN`: a fine-grained, read-only personal access token (Phase 5)
 - [ ] `CRON_SECRET`: any long random string; it protects the sync endpoints
-- [ ] Your existing manual attendance records, exported as a CSV (name, event, date)
+- ~~Your existing manual attendance records, exported as a CSV~~ Not needed: Phase 3 starts fresh with no history import.
 
 ## 4. Data model (Supabase)
 
@@ -58,8 +58,9 @@ shipped_approvals  message_id, status ('pending'|'shipped'|'progress'), source (
                    'manual'), priority, queued_at, decided_by, decided_at, note
 shipped_review_queue  view: pending approvals with message, member and score, by priority then date
 project_aliases    id, member_id, alias, canonical, created_by, created_at
-events             id, name, date, type ('meeting'|'workshop'|'hackathon'|'social'), weight
-attendance         event_id, member_id, recorded_by, recorded_at
+events             id, name, date, type ('meeting'|'workshop'|'hackathon'|'social'), weight,
+                   weekly (bool; one per date), created_by, created_at
+attendance         event_id, member_id, recorded_by (required), recorded_at (server time)
 github_activity    member_id, date, commits, prs_opened, prs_merged, repos (text[])
 token_usage        member_id, date, tokens   -- Phase 7, optional
 score_snapshots    member_id, period ('2026-10' | 'all'), components (jsonb),
@@ -72,7 +73,7 @@ bonus_points       id, member_id, event_id (nullable), type ('demo'|'other'), po
 sync_runs          id, source, started_at, finished_at, status, cursor, error
 ```
 
-Row-level security: members can read everything (it's internal); only `role='admin'` can write `attendance`, `events`, `member_identities`, and `awards`. Admins can award `bonus_points` (only as themselves) and revoke them, but nobody can delete them, so the award log stays complete. Only the service role (used by cron jobs) can write everything else.
+Row-level security: members can read everything (it's internal); only `role='admin'` can write `attendance`, `events`, `member_identities`, and `awards`. Admins mark attendance and create events only as themselves (`recorded_by` / `created_by` = their member id), and a trigger stamps `recorded_at` with the server clock. Admins can award `bonus_points` (only as themselves) and revoke them, but nobody can delete them, so the award log stays complete. Only the service role (used by cron jobs) can write everything else.
 
 ## 4a. Exec board exclusion
 
@@ -152,13 +153,15 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 - Eval set: about 20 real messages with Claude-proposed labels that an organizer corrects (`evals/message-labels.json` holds ids only, so no message text goes into git), plus `npm run eval:classifier`, which reports category accuracy, substance accuracy (exact and ±1), whether points would be awarded the same way, and cost
 - **Done when:** every eligible message is scored, the eval set is at least 80% accurate, and the cost per 1,000 messages is logged.
 
-### Phase 3: Attendance (organizer-only)
-- `/admin/events`: create and edit events
-- `/admin/checkin/[eventId]`: a mobile-first grid of member avatars with names; tap to mark someone present (optimistic UI), plus search. Exec board members are hidden by default, and no attendance rows are created for them.
-  - A "🎤 Demoed" toggle next to each attendee. Turning it on awards a `demo` bonus at `BONUS.demoPoints` (an admin can change the amount) and marks the person present. Turning it off revokes the bonus.
-- `/admin/bonus`: award points of any type to a member, with a required reason, an optional event and an amount (prefilled with 30 for demos). Below the form is the full log (who, what, points, reason, awarded by, when, revoked by), with an Undo button that revokes the award.
-- `scripts/import-attendance.ts`: imports your historical CSV, fuzzy-matching names to members, and prints any it couldn't match. Rows for excluded members are skipped and reported.
-- **Done when:** an organizer can take attendance for 30 people in under a minute on a phone.
+### Phase 3: Attendance (exec board only) ✅
+Kept simple: weekly meetings only, no history import, no general events page yet.
+- **Access, at every layer:** RLS lets only `role='admin'` insert, update or delete `events` and `attendance`, and only in their own name. The `setCheckin` server action re-checks admin and returns a 403 result otherwise. Non-admins never see the "Sign-in" nav link, and `/admin/checkin` redirects them to the leaderboard. Every attendance row stores who marked it (`recorded_by`) and when (`recorded_at`, server time).
+- **Weekly meetings:** one "Weekly Meeting" event per week on the day and time in `WEEKLY_MEETING` (`lib/scoring/config.ts`; Thursday 4:30 PM). It's created the first time an admin opens that week's sheet (unique per date).
+- **`/admin/checkin`:** opens to this week's meeting, with a week picker (the last 12 weeks) for fixing a missed week. It's styled as the G2 "Crew sign-in" sheet: a mobile-first grid of avatars and names with search. Tap to sign someone in, or 🎤 to add a demo (a `demo` bonus at `BONUS.demoPoints`, which also signs them in). A live "X present" count sits in a sticky header. Exec board members are hidden. Changes save instantly (optimistic, queued per member) with an Undo toast. Un-signing someone also revokes their demo for that meeting.
+- **Scoring:** attending earns `WEIGHTS.eventAttended` × the event's weight (15 pts). Scores recompute in the background after each change (`lib/scoring/recompute.ts`, coalesced), and the nightly cron catches anything missed.
+- **Tests:** `lib/attendance/checkin.test.ts` (server layer: a non-admin gets a 403 with no writes, and an exec can't be marked present) and `npm run test:db` (database layer, against the real project: non-admins can't insert, update or delete attendance, create events or award demos; admins can't mark in someone else's name; nobody can mark an exec present).
+- **Later:** `/admin/events` for one-off events (workshops, hackathons, with weights), `/admin/bonus` for "other" bonuses, and a history import if it's ever needed.
+- **Done when:** an admin can take attendance for 30 people in under a minute on a phone.
 
 ### Phase 4: Scores, the leaderboard UI, and auth ✅ (built before Phase 3; works without attendance data)
 - Supabase magic-link login, limited to emails in `members` (or `@lehigh.edu`)

@@ -18,6 +18,7 @@ at a time, and stop for review after each phase.
 - `npm run build`: production build
 - `npm run db:push`: apply `supabase/migrations/*.sql` to the linked project (Supabase CLI)
 - `npm test`: Vitest unit tests (`*.test.ts` next to the code)
+- `npm run test:db`: integration tests in `tests/db/` against the linked project's real API and RLS (creates and deletes throwaway fixtures)
 - `npm run groupme:list-groups` / `groupme:backfill` / `groupme:sync` / `groupme:purge-raw`
 - `npm run score-messages` / `npm run eval:classifier`: AI message scoring and its eval (both call the Anthropic API and cost money)
 - `npm run compute-scores`: recompute leaderboard snapshots
@@ -45,6 +46,7 @@ Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they ca
 - GroupMe: `lib/groupme.ts` is the API client; `lib/groupme-sync.ts` holds the shared backfill/incremental logic. Incremental sync pages with `after_id` (not `since_id`, which skips messages when >100 arrive) and re-reads the last 7 days to refresh likes.
 - GroupMe subtopics are separate channels (`messages.channel_id` / `channel_name`), each with its own sync cursor.
 - Message scoring: `lib/scoring/classify.ts` is pure (prompt, request, parsing, cost); `lib/scoring/score-messages.ts` loads, runs and saves results through a swappable `ClassifyExecutor` (realtime now, Batch API later). Never send member names to the model.
+- Attendance: weekly meetings only (`WEEKLY_MEETING` in `lib/scoring/config.ts`), checked in at `/admin/checkin`. `applyCheckin()` in `lib/attendance/checkin.ts` is the single write path (admin check → 403, exec → 409), using the admin's session so RLS applies. Admins write attendance/events only as themselves.
 - Bonus points (`bonus_points`): manual, uncapped, demo default in `lib/scoring/config.ts`. A demo counts once per member per event and also marks attendance (DB trigger). Undo = revoke (`revoked_at`), never delete. Counting rules live in `lib/scoring/bonus.ts`.
 - Shipped is never awarded by the model: it outputs `shipped_candidate`, queued in `shipped_approvals`; only an exec "yes" makes it shipped (`effectiveCategory()`). Project names go through `project_aliases` (`lib/scoring/projects.ts`). Classifier batches run chronologically so `author_projects` carries forward.
 - Auth: Google sign-in (Supabase OAuth) for `@lehigh.edu` Workspace accounts (`hd` claim checked server-side), allowlisted by `members.email`. Email magic links are a backup for admins only (any member in local dev, for `login-link`). Rules are pure in `lib/auth-rules.ts`; `completeLogin()` links the auth user to the member by email after `/auth/callback` or `/auth/confirm`, and `getViewer()` re-checks them on every request. Lehigh accounts not on the roster go to `/not-a-member`. `getViewer()` / `requireViewer()` / `requireAdmin()` in `lib/auth.ts`. Pages under `app/(app)/` are members-only via the layout + middleware. Read data with the user's session (RLS); use the secret-key client only in cron, scripts, and score recomputation.
