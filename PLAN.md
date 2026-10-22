@@ -195,7 +195,7 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 - `member_summaries` (member_id, project, summary, source_message_ids, update_count, last_post_at, model, generated_at, override_summary / override_by / override_at). Regenerated only when a member has a scored update the stored summary hasn't seen, at the end of the message-scoring job (no extra cron).
 - Prompt rules: only facts from their posts, no hype or invented details, no names (names are redacted before sending, and a summary that names a member is rejected), at most 2 sentences.
 - Fallbacks: no updates shows "No updates yet: post your progress in GroupMe to fill this in." Exec board members get no card (and a trigger rejects their rows).
-- Admins can edit the text on the profile (stored as an override with who and when, and they can reset to generated). Members can only view.
+- Only the profile's owner can edit their own text (stored as an override with who and when; "Reset to auto-summary" goes back). Other members and admins can only view; the save action returns 403 and RLS allows writes only on your own row.
 
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)

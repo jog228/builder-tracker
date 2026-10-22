@@ -31,7 +31,10 @@ import { requireViewer } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
 import { localDate, monthKey } from "@/lib/scoring/time";
-import { nowBuildingCard } from "@/lib/summaries/now-building";
+import {
+  canEditNowBuilding,
+  nowBuildingCard,
+} from "@/lib/summaries/now-building";
 import { cn } from "@/lib/utils";
 
 export default async function BuilderPage({
@@ -123,7 +126,7 @@ export default async function BuilderPage({
         <NowBuilding
           memberId={member.id}
           card={nowBuilding}
-          canEdit={viewer.isAdmin}
+          canEdit={canEditNowBuilding(viewer, member.id)}
         />
       )}
 

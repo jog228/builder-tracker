@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildAliasMap } from "@/lib/scoring/projects";
 import {
   NO_UPDATES_TEXT,
+  canEditNowBuilding,
   PENDING_TEXT,
   buildSummaryRequest,
   cleanSummary,
@@ -236,5 +237,23 @@ describe("parseSummaryResponse", () => {
     expect(parseSummaryResponse(res("not json"), [])).toMatchObject({
       ok: false,
     });
+  });
+});
+
+describe("canEditNowBuilding", () => {
+  const id = "ana";
+  it("only the profile's owner", () => {
+    expect(canEditNowBuilding({ memberId: "ana", isExcluded: false }, id)).toBe(
+      true,
+    );
+    expect(canEditNowBuilding({ memberId: "bo", isExcluded: false }, id)).toBe(
+      false,
+    );
+    expect(canEditNowBuilding(null, id)).toBe(false);
+  });
+  it("not exec board members, even on their own profile", () => {
+    expect(canEditNowBuilding({ memberId: "ana", isExcluded: true }, id)).toBe(
+      false,
+    );
   });
 });

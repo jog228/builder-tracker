@@ -279,3 +279,14 @@ export function nowBuildingCard(
     ? { kind: "empty", text: PENDING_TEXT, pending: true }
     : { kind: "empty", text: NO_UPDATES_TEXT, pending: false };
 }
+
+// ─── Who may edit ───────────────────────────────────────────────────────────
+
+/**
+ * Only the profile's owner edits their own "Now Building" text: not other
+ * members, not admins. Exec board members have no card, so no edits either.
+ */
+export const canEditNowBuilding = (
+  viewer: { memberId: string; isExcluded: boolean } | null,
+  profileMemberId: string,
+) => !!viewer && !viewer.isExcluded && viewer.memberId === profileMemberId;

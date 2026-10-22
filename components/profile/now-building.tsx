@@ -8,7 +8,7 @@ import { dayLabel, plural } from "@/lib/format";
 import type { NowBuildingCard as Card } from "@/lib/summaries/now-building";
 import { cn } from "@/lib/utils";
 
-/** A hard-hat "NOW BUILDING" site sign. Admins can edit the text. */
+/** A hard-hat "NOW BUILDING" site sign. Its owner can edit the text. */
 export function NowBuilding({
   memberId,
   card,
@@ -43,12 +43,12 @@ export function NowBuilding({
           </p>
         )}
 
-        {editing && summary ? (
+        {editing ? (
           <Editor
             memberId={memberId}
-            initial={summary.text}
-            generated={summary.generated}
-            edited={!!summary.edited}
+            initial={summary?.text ?? ""}
+            generated={summary?.generated ?? null}
+            edited={!!summary?.edited}
             onDone={() => setEditing(false)}
           />
         ) : (
@@ -71,13 +71,13 @@ export function NowBuilding({
               )}
             </span>
           )}
-          {canEdit && summary?.edited && (
+          {summary?.edited && (
             <span className="text-rust">
               Edited{summary.edited.by ? ` by ${summary.edited.by}` : ""}
               {summary.edited.at ? ` · ${dayLabel(summary.edited.at)}` : ""}
             </span>
           )}
-          {canEdit && summary && !editing && (
+          {canEdit && !editing && (
             <button
               type="button"
               onClick={() => setEditing(true)}
@@ -121,7 +121,7 @@ function Editor({
         htmlFor="now-building-text"
         className="text-sm font-bold tracking-widest uppercase"
       >
-        Summary (admins only)
+        Your Now Building (1–2 sentences)
       </label>
       <textarea
         id="now-building-text"
@@ -132,7 +132,9 @@ function Editor({
         className="border-ink w-full max-w-3xl border-2 bg-white px-3 py-2 text-lg leading-snug"
       />
       {generated && edited && (
-        <p className="text-slate max-w-3xl text-sm">Generated: “{generated}”</p>
+        <p className="text-slate max-w-3xl text-sm">
+          Auto-summary: “{generated}”
+        </p>
       )}
       {error && (
         <p role="alert" className="text-bad font-semibold">
@@ -155,7 +157,7 @@ function Editor({
             onClick={() => save(null)}
             className="border-ink hover:bg-concrete inline-flex min-h-11 items-center gap-1.5 border-2 px-4 disabled:opacity-50"
           >
-            <Icon icon={RotateCcw} /> Reset to generated
+            <Icon icon={RotateCcw} /> Reset to auto-summary
           </button>
         )}
         <button
