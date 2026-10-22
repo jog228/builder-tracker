@@ -1,6 +1,8 @@
-// Imports login emails from the roster CSV, matching rows to members by
-// GroupMe name (or a GroupMe id column). Dry run by default: prints every row
-// that won't import cleanly. Pass --write to save the matched emails.
+// Imports login emails from the roster CSV, matching each row to a member by
+// its groupme_name_hint if set, else its name (case-insensitive, with
+// conservative close matches; a GroupMe id column wins over both). Dry run by
+// default: prints close matches to review, every row that won't import
+// cleanly, and members left without an email. Pass --write to save.
 // Usage: npm run roster:import -- [path, default data/roster.csv] [--write]
 import { readFileSync } from "node:fs";
 import {
@@ -13,7 +15,7 @@ import {
 import { createAdminClient } from "../lib/supabase/admin";
 
 const fmt = (r: RowResult) =>
-  `  line ${r.row.line}: "${r.row.name}" <${r.row.email}>`;
+  `  line ${r.row.line}: "${r.row.name}"${r.row.hint ? ` (hint "${r.row.hint}")` : ""} <${r.row.email}>`;
 const names = (ms: RosterMember[]) => ms.map((m) => `"${m.name}"`).join(", ");
 
 async function main() {
@@ -25,7 +27,9 @@ async function main() {
   const db = createAdminClient();
   const [{ data: members, error }, { data: ids, error: idError }] =
     await Promise.all([
-      db.from("members").select("id, display_name, email, active"),
+      db
+        .from("members")
+        .select("id, display_name, email, active, role, exclude_from_rankings"),
       db.from("member_identities").select("member_id, groupme_user_id"),
     ]);
   if (error) throw error;
@@ -44,21 +48,37 @@ async function main() {
   const by = (s: RowResult["status"]) => results.filter((r) => r.status === s);
 
   console.log(`${path}: ${rows.length} rows, ${members!.length} members\n`);
+
+  const close = results.filter(
+    (r) => (r.status === "set" || r.status === "unchanged") && r.close,
+  );
+  if (close.length) {
+    console.log(`CLOSE MATCHES (will be written; check them): ${close.length}`);
+    for (const r of close)
+      if (r.status === "set" || r.status === "unchanged")
+        console.log(
+          `${fmt(r)}\n    → "${r.member.name}" (${r.close}, by ${r.via})`,
+        );
+    console.log();
+  }
   const problems: [string, RowResult[], (r: RowResult) => string][] = [
     [
       "UNMATCHED (no member with that GroupMe name)",
       by("unmatched"),
       (r) =>
-        r.status === "unmatched" && r.suggestions.length
-          ? `    did you mean ${names(r.suggestions)}?`
-          : "",
+        r.status !== "unmatched"
+          ? ""
+          : `    by ${r.via}` +
+            (r.suggestions.length
+              ? `; did you mean ${names(r.suggestions)}?`
+              : ""),
     ],
     [
-      "AMBIGUOUS (several members share that name; add a GroupMe ID column)",
+      "AMBIGUOUS (several members fit; set groupme_name_hint to the exact GroupMe name)",
       by("ambiguous"),
       (r) =>
         r.status === "ambiguous"
-          ? `    candidates: ${r.candidates.length} × "${r.candidates[0].name}"`
+          ? `    by ${r.via}; candidates: ${names(r.candidates)}`
           : "",
     ],
     [
@@ -103,6 +123,26 @@ async function main() {
       `INACTIVE MEMBERS (email saved, but they can't log in): ${inactive.length}`,
     );
     for (const r of inactive) console.log(fmt(r));
+    console.log();
+  }
+
+  // Active GroupMe members who still won't have an email (can't sign in).
+  const willHave = new Set(
+    results.flatMap((r) =>
+      r.status === "set" || r.status === "unchanged" ? [r.member.id] : [],
+    ),
+  );
+  const noEmail = members!
+    .filter((m) => m.active && !m.email && !willHave.has(m.id))
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+  if (noEmail.length) {
+    console.log(
+      `GROUPME MEMBERS WITH NO EMAIL (can't sign in yet): ${noEmail.length}`,
+    );
+    for (const m of noEmail)
+      console.log(
+        `  "${m.display_name}"${m.role === "admin" ? " [admin/exec]" : ""}${groupme.get(m.id) ? ` (GroupMe ${groupme.get(m.id)})` : ""}`,
+      );
     console.log();
   }
 

@@ -40,13 +40,16 @@ export function parseCsv(text: string): string[][] {
 export type RosterRow = {
   line: number; // 1-based line in the CSV (header is line 1)
   name: string;
+  /** GroupMe display name to match instead of `name`, when the roster has one. */
+  hint: string | null;
   email: string;
   groupmeId: string | null;
 };
 
 /**
- * Finds the name / email (and optional GroupMe id) columns by header.
- * Prefers a "GroupMe name" column; falls back to "name", or first + last.
+ * Finds the name / email columns (plus optional GroupMe name hint and GroupMe
+ * id) by header: "name" (or first + last), "email" (preferring a Lehigh one),
+ * a header with "hint" or "groupme … name", and "groupme … id".
  */
 export function readRoster(text: string): RosterRow[] {
   const [header, ...body] = parseCsv(text);
@@ -63,27 +66,35 @@ export function readRoster(text: string): RosterRow[] {
     (s) => s.includes("lehigh") && s.includes("email"),
     (s) => s.includes("email"),
   );
-  const groupmeId = find((s) => /groupme.*(id|user)/.test(s));
-  const name = find(
+  const groupmeId = find(
+    (s) => /groupme.*(id|user)/.test(s) && !s.includes("name"),
+  );
+  const hint = find(
+    (s) => s.includes("hint"),
     (s) => s.includes("groupme") && s.includes("name"),
+  );
+  const name = find(
     (s) => s === "name" || s === "full name" || s === "display name",
-    (s) => s.includes("name") && !/first|last|user/.test(s),
+    (s, i = h.indexOf(s)) =>
+      s.includes("name") &&
+      !/first|last|user|hint|groupme/.test(s) &&
+      i !== hint,
   );
   const first = find((s) => s.includes("first"));
   const last = find((s) => s.includes("last"));
   if (email < 0)
     throw new Error(`No email column in the header: ${header.join(", ")}`);
-  if (name < 0 && first < 0)
+  if (name < 0 && first < 0 && hint < 0)
     throw new Error(`No name column in the header: ${header.join(", ")}`);
 
+  const cell = (r: string[], i: number) => (i >= 0 ? (r[i] ?? "").trim() : "");
   return body.map((r, i) => ({
     line: i + 2,
     name:
-      name >= 0
-        ? (r[name] ?? "").trim()
-        : `${r[first] ?? ""} ${last >= 0 ? (r[last] ?? "") : ""}`.trim(),
-    email: (r[email] ?? "").trim().toLowerCase(),
-    groupmeId: groupmeId >= 0 ? (r[groupmeId] ?? "").trim() || null : null,
+      name >= 0 ? cell(r, name) : `${cell(r, first)} ${cell(r, last)}`.trim(),
+    hint: cell(r, hint) || null,
+    email: cell(r, email).toLowerCase(),
+    groupmeId: cell(r, groupmeId) || null,
   }));
 }
 
@@ -91,10 +102,51 @@ export function readRoster(text: string): RosterRow[] {
 export const nameKey = (s: string) =>
   s
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+
+/** Edit distance (insert/delete/substitute). */
+export function levenshtein(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++)
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/**
+ * "Close" (not exact) name matches, conservatively:
+ * - a typo: edit distance ≤ 1 (≤ 2 for names of 10+ letters), names ≥ 5 letters
+ * - same first name, and one side is only a first name ("Henry" ↔ "Henry Hasty")
+ * - same first name, and one last name is just its initial ("Shenouda N." ↔
+ *   "Shenouda Nessim")
+ */
+export function isCloseName(a: string, b: string): false | string {
+  const ka = nameKey(a);
+  const kb = nameKey(b);
+  if (!ka || !kb || ka === kb) return false;
+  const shorter = Math.min(ka.length, kb.length);
+  if (shorter >= 5 && levenshtein(ka, kb) <= (shorter >= 10 ? 2 : 1))
+    return "spelling";
+  const ta = ka.split(" ");
+  const tb = kb.split(" ");
+  if (ta[0] !== tb[0]) return false;
+  if (ta.length === 1 || tb.length === 1) return "first name only";
+  const la = ta.at(-1)!;
+  const lb = tb.at(-1)!;
+  if (la[0] === lb[0] && (la.length === 1 || lb.length === 1))
+    return "last initial";
+  return false;
+}
 
 export type RosterMember = {
   id: string;
@@ -104,12 +156,21 @@ export type RosterMember = {
   active: boolean;
 };
 
+/** How a row found its member. */
+export type MatchInfo = {
+  via: "groupme id" | "hint" | "name";
+  /** null for an exact match; otherwise why it's close ("spelling", ...). */
+  close: string | null;
+};
+
+type Matched = { member: RosterMember } & MatchInfo;
+
 export type RowResult = { row: RosterRow } & (
-  | { status: "set"; member: RosterMember } // will write the email
-  | { status: "unchanged"; member: RosterMember } // already has it
-  | { status: "conflict"; member: RosterMember } // member has another email
-  | { status: "unmatched"; suggestions: RosterMember[] }
-  | { status: "ambiguous"; candidates: RosterMember[] }
+  | ({ status: "set" } & Matched) // will write the email
+  | ({ status: "unchanged" } & Matched) // already has it
+  | ({ status: "conflict" } & Matched) // member has another email
+  | { status: "unmatched"; via: "hint" | "name"; suggestions: RosterMember[] }
+  | { status: "ambiguous"; via: "hint" | "name"; candidates: RosterMember[] }
   | { status: "invalid-email" }
   | { status: "duplicate"; reason: string }
 );
@@ -136,6 +197,12 @@ function suggest(name: string, members: RosterMember[]) {
     .map((x) => x.m);
 }
 
+/**
+ * Matches roster rows to members: GroupMe id if given, else the hint if set,
+ * else the name. Exact (normalized) matches are claimed first; close matches
+ * then only consider members nobody matched exactly, and count only when
+ * exactly one member is close.
+ */
 export function matchRoster(
   rows: RosterRow[],
   members: RosterMember[],
@@ -152,33 +219,96 @@ export function matchRoster(
     members.filter((m) => m.email).map((m) => [m.email!, m]),
   );
 
+  // Pass 1: everything except close matches.
+  type Pending = { row: RosterRow; via: "hint" | "name"; query: string };
+  const found = new Map<number, RowResult | Pending>();
   const seenEmail = new Map<string, number>();
-  const seenMember = new Map<string, number>();
-  return rows.map((row): RowResult => {
-    if (!EMAIL.test(row.email)) return { row, status: "invalid-email" };
-    if (seenEmail.has(row.email))
-      return {
+  const claimed = new Set<string>();
+  for (const row of rows) {
+    if (!EMAIL.test(row.email)) {
+      found.set(row.line, { row, status: "invalid-email" });
+      continue;
+    }
+    if (seenEmail.has(row.email)) {
+      found.set(row.line, {
         row,
         status: "duplicate",
         reason: `email already on line ${seenEmail.get(row.email)}`,
-      };
+      });
+      continue;
+    }
     seenEmail.set(row.email, row.line);
 
-    let member: RosterMember | undefined;
-    if (row.groupmeId) member = byGroupme.get(row.groupmeId);
-    if (!member) {
-      const hits = byName.get(nameKey(row.name)) ?? [];
-      if (hits.length > 1)
-        return { row, status: "ambiguous", candidates: hits };
-      member = hits[0];
-    }
-    if (!member)
-      return {
+    const byId = row.groupmeId ? byGroupme.get(row.groupmeId) : undefined;
+    if (byId) {
+      found.set(row.line, {
         row,
-        status: "unmatched",
-        suggestions: suggest(row.name, members),
-      };
+        status: "set",
+        member: byId,
+        via: "groupme id",
+        close: null,
+      });
+      claimed.add(byId.id);
+      continue;
+    }
+    const via = row.hint ? "hint" : "name";
+    const query = row.hint ?? row.name;
+    const hits = byName.get(nameKey(query)) ?? [];
+    if (hits.length > 1) {
+      found.set(row.line, { row, status: "ambiguous", via, candidates: hits });
+    } else if (hits.length === 1) {
+      found.set(row.line, {
+        row,
+        status: "set",
+        member: hits[0],
+        via,
+        close: null,
+      });
+      claimed.add(hits[0].id);
+    } else {
+      found.set(row.line, { row, via, query });
+    }
+  }
 
+  // Pass 2: close matches among unclaimed members.
+  const open = members.filter((m) => !claimed.has(m.id));
+  for (const [line, f] of found) {
+    if ("status" in f) continue;
+    const close = open
+      .map((m) => ({ m, why: isCloseName(f.query, m.name) }))
+      .filter((x): x is { m: RosterMember; why: string } => !!x.why);
+    found.set(
+      line,
+      close.length === 1
+        ? {
+            row: f.row,
+            status: "set",
+            member: close[0].m,
+            via: f.via,
+            close: close[0].why,
+          }
+        : close.length > 1
+          ? {
+              row: f.row,
+              status: "ambiguous",
+              via: f.via,
+              candidates: close.map((c) => c.m),
+            }
+          : {
+              row: f.row,
+              status: "unmatched",
+              via: f.via,
+              suggestions: suggest(f.query, members),
+            },
+    );
+  }
+
+  // Pass 3: one member per row, and don't hand out someone else's email.
+  const seenMember = new Map<string, number>();
+  return rows.map((row): RowResult => {
+    const r = found.get(row.line) as RowResult;
+    if (r.status !== "set") return r;
+    const { member } = r;
     if (seenMember.has(member.id))
       return {
         row,
@@ -186,7 +316,6 @@ export function matchRoster(
         reason: `${member.name} already matched on line ${seenMember.get(member.id)}`,
       };
     seenMember.set(member.id, row.line);
-
     const owner = ownerOfEmail.get(row.email);
     if (owner && owner.id !== member.id)
       return {
@@ -194,9 +323,9 @@ export function matchRoster(
         status: "duplicate",
         reason: `email already belongs to ${owner.name}`,
       };
-    if (member.email === row.email) return { row, status: "unchanged", member };
-    if (member.email) return { row, status: "conflict", member };
-    return { row, status: "set", member };
+    if (member.email === row.email) return { ...r, status: "unchanged" };
+    if (member.email) return { ...r, status: "conflict" };
+    return r;
   });
 }
 
