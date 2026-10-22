@@ -19,6 +19,7 @@ at a time, and stop for review after each phase.
 - `npm run db:push`: apply `supabase/migrations/*.sql` to the linked project (Supabase CLI)
 - `npm test`: Vitest unit tests (`*.test.ts` next to the code)
 - `npm run groupme:list-groups` / `groupme:backfill` / `groupme:sync` / `groupme:purge-raw`
+- `npm run score-messages` / `npm run eval:classifier`: AI message scoring and its eval (both call the Anthropic API and cost money)
 - `npm run set-exec -- [--dry-run] "<GroupMe name or id>" ...`: mark exec board members (admin + excluded from rankings)
 
 Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they can import `server-only` modules.
@@ -37,6 +38,8 @@ Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they ca
 - Standalone scripts go in `scripts/` and get an npm script entry.
 - Schema changes are new files in `supabase/migrations/` (never edit an applied migration).
 - GroupMe: `lib/groupme.ts` is the API client; `lib/groupme-sync.ts` holds the shared backfill/incremental logic. Incremental sync pages with `after_id` (not `since_id`, which skips messages when >100 arrive) and re-reads the last 7 days to refresh likes.
+- GroupMe subtopics are separate channels (`messages.channel_id` / `channel_name`), each with its own sync cursor.
+- Message scoring: `lib/scoring/classify.ts` is pure (prompt, request, parsing, cost); `lib/scoring/score-messages.ts` loads, runs and saves results through a swappable `ClassifyExecutor` (realtime now, Batch API later). Never send member names to the model.
 - `messages.liked_by` stores GroupMe user ids (likers may not be members); `messages.sender_groupme_id` allows re-mapping senders to members.
 
 ## Guardrails

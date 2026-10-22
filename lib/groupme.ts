@@ -74,6 +74,19 @@ export async function listGroups(): Promise<GroupMeGroup[]> {
   }
 }
 
+export type GroupMeSubgroup = { id: string; topic: string };
+
+/** Subtopics ("Goals & Progress", ...). Each is read like a group: /groups/:subgroupId/messages. */
+export async function listSubgroups(
+  groupId: string,
+): Promise<GroupMeSubgroup[]> {
+  const subgroups = await gm<{ id: string | number; topic: string }[]>(
+    `/groups/${groupId}/subgroups`,
+    { per_page: 100 },
+  );
+  return (subgroups ?? []).map((s) => ({ id: String(s.id), topic: s.topic }));
+}
+
 export async function getGroup(groupId: string): Promise<GroupMeGroup> {
   const group = await gm<GroupMeGroup>(`/groups/${groupId}`);
   if (!group) throw new Error(`Group ${groupId} not found`);

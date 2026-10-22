@@ -1,0 +1,144 @@
+{
+  "_readme": "Hand-labeled eval set for lib/scoring/classify.ts. Ids only: message text stays in Supabase, not git. Exec board members' messages are left out (and replaced if someone joins the exec board) because they're never scored. Run: npm run eval:classifier",
+  "_status": "Reviewed by organizer 2026-10-22",
+  "labels": [
+    {
+      "id": "179208407829321847",
+      "category": "progress_update",
+      "substance": 3,
+      "note": "accuracy numbers + next steps"
+    },
+    {
+      "id": "179156860623479186",
+      "category": "shipped",
+      "substance": 3,
+      "note": "built a working app, attached demo, lessons learned"
+    },
+    {
+      "id": "179126511487247758",
+      "category": "shipped",
+      "substance": 2,
+      "note": "demo video of existing app + goal"
+    },
+    {
+      "id": "179156820172046493",
+      "category": "progress_update",
+      "substance": 3,
+      "note": "results graph, evaluation method"
+    },
+    {
+      "id": "179183312628819103",
+      "category": "progress_update",
+      "substance": 1,
+      "note": "goal with no specifics"
+    },
+    {
+      "id": "179140358460527533",
+      "category": "progress_update",
+      "substance": 1,
+      "note": "vague research goal"
+    },
+    {
+      "id": "179124365249684379",
+      "category": "shipped",
+      "substance": 2,
+      "note": "explicit 'iOS app is live' launch (organizer correction)"
+    },
+    {
+      "id": "179149424443581132",
+      "category": "progress_update",
+      "substance": 2,
+      "note": "completed components + concrete next steps"
+    },
+    {
+      "id": "179157610010116533",
+      "category": "progress_update",
+      "substance": 2,
+      "note": "says MVP is running but no link/demo, so not shipped (borderline)"
+    },
+    {
+      "id": "179243413597529206",
+      "category": "progress_update",
+      "substance": 2,
+      "note": "built at hackathon, no link, pivot + goals (borderline shipped)"
+    },
+    {
+      "id": "179224151241722604",
+      "category": "progress_update",
+      "substance": 2,
+      "note": "explains own method in reply to a question"
+    },
+    {
+      "id": "179238314041862946",
+      "category": "progress_update",
+      "substance": 1,
+      "note": "prototype mentioned, no detail"
+    },
+    {
+      "id": "179227328429169477",
+      "category": "progress_update",
+      "substance": 2,
+      "note": "fixed interface/API errors + next steps"
+    },
+    {
+      "id": "179089020904984780",
+      "category": "progress_update",
+      "substance": 2,
+      "note": "what they're building + weekly goal (main chat)"
+    },
+    {
+      "id": "179158300554078253",
+      "category": "help_given",
+      "substance": 1,
+      "note": "name suggestion for another member's product"
+    },
+    {
+      "id": "178985852772800461",
+      "category": "help_given",
+      "substance": 1,
+      "note": "shares an article"
+    },
+    {
+      "id": "179208530805129802",
+      "category": "chatter",
+      "substance": 0,
+      "note": "asks about someone's model; engagement, not help"
+    },
+    {
+      "id": "179149384312437554",
+      "category": "event_related",
+      "substance": 1,
+      "note": "reminder for a member-hosted event"
+    },
+    {
+      "id": "179085854310614184",
+      "category": "chatter",
+      "substance": 0,
+      "note": "missing the meeting; chatter, not event logistics (organizer correction)"
+    },
+    {
+      "id": "179003157908285550",
+      "category": "chatter",
+      "substance": 1,
+      "note": "introduction (intro rule), even though it describes a live project"
+    },
+    {
+      "id": "179185813120261235",
+      "category": "progress_update",
+      "substance": 1,
+      "note": "vague goal: advertising + design feedback"
+    },
+    {
+      "id": "179242364942096314",
+      "category": "progress_update",
+      "substance": 2,
+      "note": "built demos of both interfaces, meeting a doctor"
+    },
+    {
+      "id": "179126437419007833",
+      "category": "chatter",
+      "substance": 0,
+      "note": "reaction"
+    }
+  ]
+}

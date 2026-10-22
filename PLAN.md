@@ -48,11 +48,12 @@ members            id, display_name, avatar_url, email, role ('member'|'admin'),
                    exclude_from_rankings (bool, default false)  -- exec board, see §4a
 ranked_members     view: members where active and not exclude_from_rankings
 member_identities  member_id, groupme_user_id, github_username
-messages           id (GroupMe msg id), member_id, sender_groupme_id, sender_type,
+messages           id (GroupMe msg id), channel_id, channel_name, reply_to_id,
+                   member_id, sender_groupme_id, sender_type,
                    text, created_at, like_count, liked_by (text[] of GroupMe user ids),
                    has_attachment, raw (jsonb)
 message_scores     message_id, category ('progress_update'|'shipped'|'help_given'|
-                   'event_related'|'chatter'), substance (0-3), summary, model, scored_at
+                   'event_related'|'chatter'), substance (0-3), summary, project, model, scored_at
 events             id, name, date, type ('meeting'|'workshop'|'hackathon'|'social'), weight
 attendance         event_id, member_id, recorded_by, recorded_at
 github_activity    member_id, date, commits, prs_opened, prs_merged, repos (text[])
@@ -88,7 +89,7 @@ Monthly score = sum of these components, each capped so no single source dominat
 | Component | Points | Cap / month |
 |---|---|---|
 | Progress update (substance ≥ 2) | 10 each | 80 |
-| "Shipped" post (demo, launch, deploy) | 25 each | 75 |
+| "Shipped" post (needs evidence: live link, demo, or explicit "it's live"); once per member per project (`countableShipped()`) | 25 each | 75 |
 | Helping others (`help_given`) | 5 each | 25 |
 | Likes received on update/shipped posts | 1 each | 30 |
 | Event attended | 15 × event weight | none |
@@ -111,17 +112,20 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 ### Phase 1: GroupMe ingestion
 - `scripts/list-groups.ts`: prints your groups and their IDs
 - `lib/groupme.ts`: client for `GET https://api.groupme.com/v3/groups/:id/messages` (paginated with `before_id`, 100 per page; incremental with `after_id`, because `since_id` skips messages when more than 100 arrive) and `GET /groups/:id` for the member list
-- Backfill script: pulls the full history and upserts `members`, `member_identities`, `messages` (idempotent on message id)
+- Backfill script: pulls the full history of the main chat **and every subtopic** ("Goals & Progress", "Introductions", "Resources"; each is read via `/groups/:subtopic_id/messages`) and upserts `members`, `member_identities`, `messages` (idempotent on message id). Each channel keeps its own cursor (`sync_runs.source = 'groupme:<channel id>'`), and new subtopics are picked up automatically.
 - `POST /api/cron/sync-groupme`: incremental sync that saves its cursor in `sync_runs`
 - `scripts/set-exec.ts`: takes GroupMe names or user ids and marks those members `role='admin'` + `exclude_from_rankings=true` (§4a)
 - **Done when:** the full history is in Supabase, and running the sync twice creates no duplicates.
 
 ### Phase 2: AI message scoring
-- `lib/scoring/classify.ts`: batches unscored messages (around 20 per call) and asks Claude for strict JSON: `{id, category, substance, summary}`
+- `lib/scoring/classify.ts`: batches unscored messages (20 per call) and asks `claude-haiku-5-5` (effort `medium`: same category accuracy as `low` in the eval, but much better substance scores, for about $0.10 per 1,000 messages) for structured JSON output: `{ref, category, substance, summary}`. Short refs (`m1`…) are sent instead of GroupMe ids, along with channel name, a has-media flag and the replied-to text. No member names are sent.
+- Classification rules (confirmed by organizers): shipped requires evidence; introductions are always chatter; weekly goal posts are progress updates, and only substance ≥ 2 earns points. The classifier also extracts the `project` name, so a shipped post counts once per member per project (names are normalized, e.g. "C-art-ion" = "Cartion").
+- Uses the regular Messages API for now. Requests are plain `MessageCreateParamsNonStreaming` run through a swappable executor (`lib/scoring/score-messages.ts`), so moving to the Batch API (50% cheaper) only means adding a batch executor.
+- Messages with no valid result (refusal, truncation, bad JSON) stay unscored and are retried next run.
 - Skip messages under 15 characters, bot or system messages, and messages from excluded (exec board) members, so they cost nothing
-- `POST /api/cron/score-messages`
-- Add a small eval set: 30 hand-labeled real messages, plus a script that reports accuracy
-- **Done when:** all messages are scored, the eval set is at least 80% accurate, and the cost per 1,000 messages is logged.
+- `POST /api/cron/score-messages` / `npm run score-messages`: each run logs token usage, cost and cost per 1,000 messages in `sync_runs.stats`
+- Eval set: about 20 real messages with Claude-proposed labels that an organizer corrects (`evals/message-labels.json` holds ids only, so no message text goes into git), plus `npm run eval:classifier`, which reports category accuracy, substance accuracy (exact and ±1), whether points would be awarded the same way, and cost
+- **Done when:** every eligible message is scored, the eval set is at least 80% accurate, and the cost per 1,000 messages is logged.
 
 ### Phase 3: Attendance (organizer-only)
 - `/admin/events`: create and edit events
