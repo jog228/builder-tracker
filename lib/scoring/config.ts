@@ -35,17 +35,12 @@ export const BONUS = {
   demoPoints: 30,
   /**
    * Community help: small tasks (an Instagram feature, helping at an event),
-   * awarded by admins from a profile. Only these amounts, capped per member
-   * per month (club time). The database enforces the same limits.
+   * awarded by admins from a profile. Only these amounts (the database
+   * enforces the same); no monthly cap.
    */
   community: {
     amounts: [5, 10] as const,
-    monthlyCap: 20,
-    reasons: [
-      "Instagram feature",
-      "Helped at event",
-      "Helped another builder",
-    ] as const,
+    reasons: ["Instagram feature", "Helped at event"] as const,
   },
 } as const;
 

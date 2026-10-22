@@ -1,6 +1,6 @@
 // Manual bonus points (demos and "other"). Uncapped, shown as their own line in
 // the score breakdown and on profiles with their reason.
-import { BADGES, BONUS } from "./config";
+import { BADGES } from "./config";
 import { isRankable, type EligibilityFields } from "./eligibility";
 
 export type BonusType = "demo" | "other" | "community";
@@ -66,38 +66,23 @@ export type BonusLine = {
 };
 
 /** One member's bonus line in the score breakdown. No cap. */
-/**
- * One member's bonus line for one month. Demo and "other" bonuses are
- * uncapped; community points count up to BONUS.community.monthlyCap (the
- * database refuses awards past it; this keeps scoring right regardless).
- */
+/** One member's bonus line for one month. Bonuses are uncapped. */
 export function bonusComponent(
   countable: BonusRow[],
   eventNames: ReadonlyMap<string, string>,
   memberNames: ReadonlyMap<string, string> = new Map(),
 ): { total: number; lines: BonusLine[] } {
-  let communityLeft: number = BONUS.community.monthlyCap;
-  const lines = [...countable]
-    .sort((a, b) => a.awarded_at.localeCompare(b.awarded_at))
-    .map((r) => {
-      let points = r.points;
-      if (r.type === "community") {
-        points = Math.min(points, communityLeft);
-        communityLeft -= points;
-      }
-      return {
-        type: r.type,
-        label:
-          r.type === "demo"
-            ? `Demoed at ${eventNames.get(r.event_id ?? "") ?? "an event"}`
-            : r.reason,
-        points,
-        date: bonusDate(r),
-        awardedAt: r.awarded_at,
-        by: r.awarded_by ? (memberNames.get(r.awarded_by) ?? null) : null,
-      };
-    })
-    .filter((l) => l.points > 0);
+  const lines = countable.map((r) => ({
+    type: r.type,
+    label:
+      r.type === "demo"
+        ? `Demoed at ${eventNames.get(r.event_id ?? "") ?? "an event"}`
+        : r.reason,
+    points: r.points,
+    date: bonusDate(r),
+    awardedAt: r.awarded_at,
+    by: r.awarded_by ? (memberNames.get(r.awarded_by) ?? null) : null,
+  }));
   return { total: lines.reduce((sum, l) => sum + l.points, 0), lines };
 }
 

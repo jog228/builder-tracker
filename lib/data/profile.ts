@@ -1,6 +1,5 @@
 import "server-only";
 import { bonusDate, type BonusType } from "@/lib/scoring/bonus";
-import { communityUsed } from "@/lib/scoring/community";
 import { countsForStreak, isUpdate, updatePoints } from "@/lib/scoring/updates";
 import { getWeeklyMeetings } from "@/lib/data/meetings";
 import { BADGES } from "@/lib/scoring/config";
@@ -122,7 +121,7 @@ export async function getProfile(memberId: string) {
     supabase
       .from("bonus_points")
       .select(
-        "id, type, points, reason, awarded_at, revoked_at, events(name, date), awarder:members!bonus_points_awarded_by_fkey(display_name)",
+        "id, type, points, reason, awarded_at, events(name, date), awarder:members!bonus_points_awarded_by_fkey(display_name)",
       )
       .eq("member_id", memberId)
       .is("revoked_at", null),
@@ -282,10 +281,5 @@ export async function getProfile(memberId: string) {
         };
       })
       .sort((a, b) => b.date.localeCompare(a.date)),
-    /** Community points used this month (for the admin panel's "15 / 20"). */
-    communityThisMonth: communityUsed(
-      (bonuses.data ?? []).map((b) => ({ ...b, revoked_at: null })),
-      monthKey(new Date()),
-    ),
   };
 }

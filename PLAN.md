@@ -104,7 +104,7 @@ Monthly score = sum of these components, each capped so no single source dominat
 | GitHub: merged PRs | 5 each | 40 |
 | Streak bonus (consecutive weeks with a detailed update, substance ≥ 2, `STREAK_MIN_SUBSTANCE`; same rule for the profile/leaderboard streak and the streak badge) | +5 per week | 30 |
 | Bonus points (manual: demos and "other") | demo default 30 (`BONUS.demoPoints`), admins can override; any amount for "other" | **none** |
-| Community help (`BONUS.community`: +5 or +10 from a profile, reason shown publicly) | +5 / +10 | 20 |
+| Community help (`BONUS.community`: +5 or +10 from a profile, reason shown publicly) | +5 / +10 | none |
 
 Only rankable members are scored: `active` and not `exclude_from_rankings` (see §4a). Likes count by who *received* them, so an exec's like on someone's update still counts for that person.
 
@@ -199,8 +199,8 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 - Only the profile's owner can edit their own text (stored as an override with who and when; "Reset to auto-summary" goes back). Other members and admins can only view; the save action returns 403 and RLS allows writes only on your own row.
 
 ### Community points ✅
-- An admin-only "Award points" card on profiles (left column, between Score Breakdown and Badges; hidden from non-admins, the profile's owner and exec profiles): a required reason (Instagram feature, Helped at event, Helped another builder, or Other with text) and +5 / +10.
-- Stored as `bonus_points` type `community` (awarded_by, reason, date). Admin-only at every layer: RLS ("admins award" as themselves), `checkCommunityAward()` in the server action (403 otherwise), a check constraint (5 or 10 only), and a trigger capping it at 20 per member per month. Exec members can't receive them (existing trigger). Undo is a soft revoke recording who.
+- An admin-only "Award points" card on profiles (left column, between Score Breakdown and Badges; hidden from non-admins, the profile's owner and exec profiles): a required reason (Instagram feature, Helped at event, or Other with text) and +5 / +10, any number of times (no monthly cap).
+- Stored as `bonus_points` type `community` (awarded_by, reason, date). Admin-only at every layer: RLS ("admins award" as themselves), `checkCommunityAward()` in the server action (403 otherwise), and a check constraint (5 or 10 only). Exec members can't receive them (existing trigger). Undo is a soft revoke recording who.
 - Shown in the Bonus Points card and the breakdown as "Instagram feature +5 · Oct 22 · by Jolie". Scores recompute after each award or undo.
 
 ### Phase 5: GitHub

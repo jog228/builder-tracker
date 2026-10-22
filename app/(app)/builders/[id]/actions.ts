@@ -4,11 +4,9 @@ import { revalidatePath } from "next/cache";
 import { getViewer } from "@/lib/auth";
 import {
   checkCommunityAward,
-  communityUsed,
   type CommunityAwardResult,
 } from "@/lib/scoring/community";
 import { scheduleRecompute } from "@/lib/scoring/recompute";
-import { monthKey } from "@/lib/scoring/time";
 import { canEditNowBuilding } from "@/lib/summaries/now-building";
 import { createClient } from "@/lib/supabase/server";
 
@@ -66,9 +64,9 @@ export async function saveNowBuilding(
 
 /**
  * Awards +5 / +10 community points with a reason. Admins only (403
- * otherwise), never to yourself or an exec board member, within the monthly
- * cap. Writes with the admin's session (RLS "admins award", the cap trigger
- * and the exec trigger apply too), then recomputes scores.
+ * otherwise), never to yourself or an exec board member. Writes with the
+ * admin's session (RLS "admins award" and the exec trigger apply too), then
+ * recomputes scores.
  */
 export async function awardCommunityPoints(
   memberId: string,
@@ -78,7 +76,7 @@ export async function awardCommunityPoints(
 ): Promise<CommunityAwardResult> {
   const viewer = await getViewer();
   if (!viewer?.isAdmin)
-    return checkCommunityAward(null, null, { amount, reason }, 0);
+    return checkCommunityAward(null, null, { amount, reason });
   if (viewer.memberId === memberId)
     return {
       ok: false,
@@ -89,27 +87,18 @@ export async function awardCommunityPoints(
     return { ok: false, status: 400, error: "Bad request." };
 
   const supabase = await createClient();
-  const [{ data: target }, { data: bonuses, error: loadError }] =
-    await Promise.all([
-      supabase
-        .from("members")
-        .select("id, active, exclude_from_rankings")
-        .eq("id", memberId)
-        .maybeSingle(),
-      supabase
-        .from("bonus_points")
-        .select("type, points, awarded_at, revoked_at")
-        .eq("member_id", memberId)
-        .eq("type", "community"),
-    ]);
+  const { data: target, error: loadError } = await supabase
+    .from("members")
+    .select("id, active, exclude_from_rankings")
+    .eq("id", memberId)
+    .maybeSingle();
   if (loadError) return { ok: false, status: 400, error: loadError.message };
 
-  const check = checkCommunityAward(
-    viewer,
-    target,
-    { amount, reason, otherText },
-    communityUsed(bonuses ?? [], monthKey(new Date())),
-  );
+  const check = checkCommunityAward(viewer, target, {
+    amount,
+    reason,
+    otherText,
+  });
   if (!check.ok) return check;
 
   const { error } = await supabase.from("bonus_points").insert({
@@ -124,8 +113,7 @@ export async function awardCommunityPoints(
       ? {
           ok: false,
           status: 409,
-          error:
-            "That would pass the monthly cap or isn't allowed for this member.",
+          error: "That isn't allowed for this member.",
         }
       : { ok: false, status: 400, error: error.message };
 

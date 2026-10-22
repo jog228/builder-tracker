@@ -151,31 +151,33 @@ describe("community points in the bonus line", () => {
     revoked_at: null,
     awarded_by: by,
   });
-  it("counts at most 20 a month, oldest first, and names who awarded it", () => {
+  it("are uncapped, and name who awarded them", () => {
     const { total, lines } = bonusComponent(
       [
         c("a", 10, "2026-10-02T15:00:00Z"),
         c("b", 10, "2026-10-09T15:00:00Z"),
-        c("c", 5, "2026-10-16T15:00:00Z"), // past the cap: dropped
+        c("c", 10, "2026-10-16T15:00:00Z"),
+        c("d", 5, "2026-10-17T15:00:00Z"),
       ],
       new Map(),
       new Map([["jo", "Jolie Goldstein"]]),
     );
-    expect(total).toBe(20);
-    expect(lines.map((l) => [l.label, l.points, l.by])).toEqual([
-      ["Instagram feature", 10, "Jolie Goldstein"],
-      ["Instagram feature", 10, "Jolie Goldstein"],
-    ]);
+    expect(total).toBe(35);
+    expect(lines.every((l) => l.by === "Jolie Goldstein")).toBe(true);
   });
-  it("doesn't cap demo or other bonuses", () => {
-    const { total } = bonusComponent(
+  it("still show an older reason that's no longer a quick pick", () => {
+    const { lines } = bonusComponent(
       [
-        c("a", 10, "2026-10-02T15:00:00Z"),
-        { ...c("d", 30, "2026-10-08T15:00:00Z"), type: "demo", event_id: "e1" },
-        { ...c("o", 50, "2026-10-09T15:00:00Z"), type: "other" },
+        {
+          ...c("e", 5, "2026-10-20T15:00:00Z"),
+          reason: "Helped another builder",
+        },
       ],
-      new Map([["e1", "Weekly Meeting"]]),
+      new Map(),
     );
-    expect(total).toBe(90);
+    expect(lines[0]).toMatchObject({
+      label: "Helped another builder",
+      points: 5,
+    });
   });
 });

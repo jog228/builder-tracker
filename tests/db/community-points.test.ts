@@ -1,6 +1,6 @@
 // Database layer for community points: only admins award (as themselves),
-// only +5/+10, at most 20 per member per month, never to exec board members,
-// and undo is a soft revoke recording who.
+// only +5/+10, no monthly cap, never to exec board members, and undo is a
+// soft revoke recording who.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fixtures, service } from "./fixtures";
@@ -59,8 +59,8 @@ describe("community points", () => {
   });
 
   let lastId = "";
-  it("enforces the 20/month cap (trigger)", async () => {
-    for (const p of [10, 5, 5]) {
+  it("has no monthly cap: admins can award any number of times", async () => {
+    for (const p of [10, 10, 10, 5]) {
       const { data, error } = await award(
         admin.client,
         builder.id,
@@ -70,9 +70,6 @@ describe("community points", () => {
       expect(error).toBeNull();
       lastId = data!.id;
     }
-    const over = await award(admin.client, builder.id, 5, admin.id);
-    expect(over.error?.code).toBe("23514");
-    expect(over.error?.message).toMatch(/cap/);
   });
 
   it("a non-admin can't undo one", async () => {
@@ -84,7 +81,7 @@ describe("community points", () => {
     expect(data ?? []).toEqual([]);
   });
 
-  it("undo is a soft revoke that records who, and frees up the cap", async () => {
+  it("undo is a soft revoke that records who", async () => {
     const { error } = await admin.client
       .from("bonus_points")
       .update({ revoked_at: new Date().toISOString(), revoked_by: admin.id })
@@ -98,9 +95,6 @@ describe("community points", () => {
       .single();
     expect(data).toMatchObject({ revoked_by: admin.id, points: 5 });
     expect(data?.revoked_at).not.toBeNull();
-    // 15 active now, so +5 fits again.
-    const again = await award(admin.client, builder.id, 5, admin.id);
-    expect(again.error).toBeNull();
   });
 
   it("nobody can delete one (the log stays complete)", async () => {

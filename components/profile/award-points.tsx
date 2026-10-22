@@ -14,20 +14,16 @@ const OTHER = "Other";
 
 /**
  * Admin-only "Award points" card on someone else's profile: a required
- * reason, then +5 or +10, within the monthly community cap.
+ * reason, then +5 or +10.
  */
 export function AwardPoints({
   memberId,
   firstName,
-  used,
-  cap,
   amounts,
   reasons,
 }: {
   memberId: string;
   firstName: string;
-  used: number;
-  cap: number;
   amounts: readonly number[];
   reasons: readonly string[];
 }) {
@@ -96,25 +92,17 @@ export function AwardPoints({
           </label>
         )}
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {amounts.map((a) => {
-            const over = used + a > cap;
-            return (
-              <button
-                key={a}
-                type="button"
-                disabled={!reasonReady || over}
-                title={over ? `Would pass the ${cap}/month cap` : undefined}
-                onClick={() => award(a)}
-                className="bg-safety inline-flex min-h-12 items-center gap-1.5 border-2 border-[#111] px-5 text-lg font-bold text-[#111] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Icon icon={HandHeart} /> +{a}
-              </button>
-            );
-          })}
-          <span className="tabular ml-auto font-bold">
-            {used} / {cap}
-            <span className="text-slate font-normal"> this month</span>
-          </span>
+          {amounts.map((a) => (
+            <button
+              key={a}
+              type="button"
+              disabled={!reasonReady}
+              onClick={() => award(a)}
+              className="bg-safety inline-flex min-h-12 items-center justify-center gap-1.5 border-2 border-[#111] px-5 text-lg font-bold text-[#111] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Icon icon={HandHeart} /> +{a}
+            </button>
+          ))}
         </div>
       </fieldset>
       {message && (

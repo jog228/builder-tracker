@@ -202,8 +202,6 @@ export default async function BuilderPage({
             <AwardPoints
               memberId={member.id}
               firstName={member.display_name.split(" ")[0]}
-              used={p.communityThisMonth}
-              cap={BONUS.community.monthlyCap}
               amounts={BONUS.community.amounts}
               reasons={BONUS.community.reasons}
             />
