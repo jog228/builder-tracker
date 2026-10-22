@@ -27,7 +27,10 @@ import { FlagShippedButton } from "@/components/profile/flag-button";
 import { NowBuilding } from "@/components/profile/now-building";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
 import { attendanceRate, meetingsHeld } from "@/lib/attendance/meetings";
-import { badgeMonthLabel } from "@/lib/badges/never-misses";
+import {
+  badgeMonthLabel,
+  neverMissesThisMonth,
+} from "@/lib/badges/never-misses";
 import { requireViewer } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
@@ -68,6 +71,13 @@ export default async function BuilderPage({
   const season = attendanceRate(
     meetingsHeld(p.meetings, { today: localDate(now), month: null }),
     attendedWeekly,
+  );
+  // Never Misses: this month so far ("On track · 4 of 4"); awarded at month end.
+  const thisMonth = neverMissesThisMonth(
+    member,
+    p.meetings,
+    attendedWeekly,
+    localDate(now),
   );
   const attendance = attendanceRate(
     meetingsHeld(p.meetings, {
@@ -197,7 +207,7 @@ export default async function BuilderPage({
                 return (
                   <div
                     key={b.slug}
-                    title={`${b.name}: ${b.description}${b.comingSoon ? " (coming soon)" : b.earned ? "" : " (locked)"}`}
+                    title={`${b.name}: ${b.description}${b.comingSoon ? " (coming soon)" : ""}${neverMisses && season.held ? ` Season: ${season.attended} of ${season.held} meetings (${season.pct}%). Awarded when the month ends.` : ""}`}
                     className={cn(
                       "border-ink flex flex-col items-center gap-1 border-2 p-2 text-center",
                       b.earned
@@ -216,11 +226,18 @@ export default async function BuilderPage({
                         {b.periods.map(badgeMonthLabel).join(", ")}
                       </span>
                     )}
-                    {neverMisses && !excluded && (
-                      <span className="text-[0.7rem] leading-tight">
-                        {season.held
-                          ? `${season.attended} of ${season.held} meetings · ${season.pct}%`
-                          : "No meetings yet"}
+                    {neverMisses && thisMonth && (
+                      <span
+                        className={cn(
+                          "text-[0.7rem] leading-tight",
+                          thisMonth.onTrack && "text-ok font-bold",
+                        )}
+                      >
+                        {thisMonth.onTrack
+                          ? `On track · ${thisMonth.attended} of ${thisMonth.held}`
+                          : thisMonth.held
+                            ? `${thisMonth.attended} of ${thisMonth.held} this month`
+                            : "No meetings yet this month"}
                       </span>
                     )}
                     {b.comingSoon && (

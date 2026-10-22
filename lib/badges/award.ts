@@ -1,13 +1,12 @@
 // Awards badges after scores are computed (the start of the Phase 6 engine).
-// Only Never Misses for now; the others show "coming soon". Syncs
-// member_badges both ways: newly earned months are added, months no longer
-// earned (e.g. a missed later meeting) are removed. Secret-key client.
+// Only Never Misses for now; the others show "coming soon". Completed months
+// are added once earned and never removed (badgeSync). Secret-key client.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MeetingEvent } from "@/lib/attendance/meetings";
 import { BADGES } from "@/lib/scoring/config";
-import { localDate } from "@/lib/scoring/time";
+import { localDate, monthKey } from "@/lib/scoring/time";
 import { fetchAll, one } from "@/lib/supabase/fetch-all";
-import { neverMissesMonths } from "./never-misses";
+import { badgeSync, neverMissesMonths } from "./never-misses";
 
 export type BadgeRunStats = {
   neverMisses: { earned: number; removed: number; held: number };
@@ -74,13 +73,13 @@ export async function awardBadges(
     ))
       want.add(`${m.id}::${month}`);
 
-  const have = new Set(
+  const { add, remove } = badgeSync(
+    want,
     existing
       .filter((e) => e.badge_id === badge.id)
-      .map((e) => `${e.member_id}::${e.period}`),
+      .map((e) => ({ key: `${e.member_id}::${e.period}`, period: e.period })),
+    monthKey(today),
   );
-  const add = [...want].filter((k) => !have.has(k));
-  const remove = [...have].filter((k) => !want.has(k));
 
   if (add.length) {
     const { error: insertError } = await db.from("member_badges").insert(

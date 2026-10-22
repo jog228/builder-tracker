@@ -271,9 +271,11 @@ export default async function HowItWorksPage() {
             <span className="leading-snug">
               <strong>Never Misses: {BADGES.neverMisses.description}</strong>{" "}
               <span className="text-slate">
-                Earned each month you attend every weekly meeting held (at least{" "}
-                {BADGES.neverMisses.minMeetings}). It shows as “Never Misses ·
-                Oct 2026” on your profile, next to your season attendance.
+                Earned for each month you attend every weekly meeting held (at
+                least {BADGES.neverMisses.minMeetings}). During the month your
+                tile shows “On track · 4 of 4”; the badge is awarded once the
+                month ends and it&apos;s yours for good (“Never Misses · Oct
+                2026”).
               </span>
             </span>
           </li>
