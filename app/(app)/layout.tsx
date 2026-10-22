@@ -25,6 +25,7 @@ export default async function AppLayout({
   const links = [
     { href: "/leaderboard", label: "Leaderboard" },
     { href: "/stats", label: "Stats" },
+    { href: "/how-it-works", label: "How it works" },
     ...(viewer.isAdmin
       ? [
           { href: "/admin/checkin", label: "Check-in" },

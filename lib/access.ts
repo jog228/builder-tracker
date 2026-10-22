@@ -19,6 +19,7 @@ const MEMBER_ROUTES: RegExp[] = [
   /^\/$/, // redirects to /leaderboard
   /^\/leaderboard$/,
   /^\/stats$/,
+  /^\/how-it-works$/, // the scoring rubric
   /^\/builders\/[0-9a-f-]{36}$/, // profiles linked from the leaderboard
 ];
 

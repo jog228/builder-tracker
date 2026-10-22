@@ -6,11 +6,12 @@ import { MEMBER_HOME, routeAccess, routeDecision } from "./access";
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
 describe("routeAccess allowlist", () => {
-  it("lets members reach only the leaderboard, stats and profiles", () => {
+  it("lets members reach only the leaderboard, stats, how-it-works and profiles", () => {
     for (const p of [
       "/",
       "/leaderboard",
       "/stats",
+      "/how-it-works",
       `/builders/${ID}`,
       "/stats/",
     ])
@@ -47,6 +48,7 @@ describe("routeAccess allowlist", () => {
       "/leaderboard/export",
       "/leaderboardx",
       "/stats/raw",
+      "/how-it-works/admin",
       "/builders",
       "/builders/not-a-uuid",
       `/builders/${ID}/edit`,

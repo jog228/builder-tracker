@@ -48,3 +48,12 @@ export const WEEKLY_MEETING = {
   /** How many past weeks the check-in week picker offers. */
   pickerWeeks: 12,
 } as const;
+
+/**
+ * Builder of the Month (Phase 6): at month end the exec board picks the winner
+ * from this many top-ranked builders on the monthly leaderboard.
+ */
+export const BUILDER_OF_THE_MONTH = { finalists: 5 } as const;
+
+/** GitHub points (Phase 5) start counting once members can link accounts. */
+export const GITHUB = { enabled: false } as const;
