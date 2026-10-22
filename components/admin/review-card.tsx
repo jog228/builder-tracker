@@ -1,9 +1,11 @@
 "use client";
 
+import { Flag, Link2, Play, Rocket, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { useState, useTransition } from "react";
 import { decideShipped, reopenShipped } from "@/app/(app)/admin/actions";
+import { Icon } from "@/components/bs/icon";
 import { Stamp } from "@/components/bs/site";
 import type { QueueItem } from "@/lib/data/shipped-review";
 import { shortDate } from "@/lib/format";
@@ -53,7 +55,8 @@ export function ReviewCard({
               {item.channel} · {shortDate(item.createdAt)}
             </span>
             {item.source === "manual" && (
-              <span className="border-rust text-rust border-2 px-1.5 text-xs font-bold tracking-wider uppercase">
+              <span className="border-rust text-rust inline-flex items-center gap-1 border-2 px-1.5 text-xs font-bold tracking-wider uppercase">
+                <Icon icon={Flag} />
                 Flagged by exec
               </span>
             )}
@@ -89,11 +92,12 @@ export function ReviewCard({
                 href={m.url}
                 target="_blank"
                 rel="noreferrer"
-                className="border-ink hover:bg-concrete inline-flex min-h-10 items-center border-2 px-3 text-sm font-semibold"
+                className="border-ink hover:bg-concrete inline-flex min-h-10 items-center gap-1.5 border-2 px-3 text-sm font-semibold"
               >
+                <Icon icon={m.type === "video" ? Play : Link2} />
                 {m.type === "video"
-                  ? "▶ Watch demo video"
-                  : `🔗 ${new URL(m.url).hostname}`}
+                  ? "Watch demo video"
+                  : new URL(m.url).hostname}
               </a>
             ),
           )}
@@ -104,15 +108,17 @@ export function ReviewCard({
         <button
           disabled={pending}
           onClick={() => decide("shipped")}
-          className="bg-safety min-h-12 border-2 border-[#111] px-5 font-bold tracking-[0.08em] text-[#111] uppercase hover:brightness-105 disabled:opacity-50"
+          className="bg-safety inline-flex min-h-12 items-center gap-2 border-2 border-[#111] px-5 font-bold tracking-[0.08em] text-[#111] uppercase hover:brightness-105 disabled:opacity-50"
         >
+          <Icon icon={Rocket} />
           Approve: shipped
         </button>
         <button
           disabled={pending}
           onClick={() => decide("progress")}
-          className="border-ink hover:bg-concrete min-h-12 border-2 px-5 font-bold tracking-[0.08em] uppercase disabled:opacity-50"
+          className="border-ink hover:bg-concrete inline-flex min-h-12 items-center gap-2 border-2 px-5 font-bold tracking-[0.08em] uppercase disabled:opacity-50"
         >
+          <Icon icon={TrendingUp} />
           No, just progress
         </button>
         {error && (

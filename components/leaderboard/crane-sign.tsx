@@ -1,8 +1,10 @@
 "use client";
 
+import { Crown, Trophy } from "lucide-react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { CountUp } from "@/components/bs/count-up";
+import { Icon } from "@/components/bs/icon";
 import type { LeaderboardRow } from "@/lib/data/leaderboard";
 
 /** The leader's name on a sign hanging from a crane hook. Swings in on load. */
@@ -34,7 +36,8 @@ export function CraneSign({
           className="border-ink h-3.5 w-[22px] rounded-b-xl border-[3px] border-t-0"
         />
         <div className="bg-safety flex w-full -rotate-2 flex-col gap-2 border-4 border-[#111] p-5 text-[#111] shadow-[8px_8px_0_var(--ink)] sm:p-[22px]">
-          <span className="text-sm font-bold tracking-[0.16em] uppercase">
+          <span className="inline-flex items-center gap-1.5 text-sm font-bold tracking-[0.16em] uppercase">
+            <Icon icon={allTime ? Crown : Trophy} className="text-base" />
             {allTime
               ? "All-time top builder"
               : "Leading for Builder of the Month"}

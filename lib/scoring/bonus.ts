@@ -42,7 +42,13 @@ export function countableBonuses<T extends BonusRow>(
     });
 }
 
-export type BonusLine = { label: string; points: number; awardedAt: string };
+/** `type` lets the UI pick an icon; labels are plain text (no emoji). */
+export type BonusLine = {
+  type: BonusType;
+  label: string;
+  points: number;
+  awardedAt: string;
+};
 
 /** One member's bonus line in the score breakdown. No cap. */
 export function bonusComponent(
@@ -50,9 +56,10 @@ export function bonusComponent(
   eventNames: ReadonlyMap<string, string>,
 ): { total: number; lines: BonusLine[] } {
   const lines = countable.map((r) => ({
+    type: r.type,
     label:
       r.type === "demo"
-        ? `🎤 Demoed at ${eventNames.get(r.event_id ?? "") ?? "an event"}`
+        ? `Demoed at ${eventNames.get(r.event_id ?? "") ?? "an event"}`
         : r.reason,
     points: r.points,
     awardedAt: r.awarded_at,

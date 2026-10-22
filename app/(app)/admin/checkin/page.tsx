@@ -1,5 +1,7 @@
+import { ChevronLeft, ChevronRight, MonitorPlay } from "lucide-react";
 import Link from "next/link";
 import { CheckinSheet, WeekSelect } from "@/components/admin/checkin-sheet";
+import { Icon } from "@/components/bs/icon";
 import { Eyebrow } from "@/components/bs/site";
 import {
   meetingDate,
@@ -44,8 +46,9 @@ export default async function CheckinPage({
         <p className="text-slate mt-2 text-lg leading-snug">
           {sheet.event.name} · {meetingLabel(sheet.event.date)} ·{" "}
           {meetingTimeLabel()}. Tap a builder to sign them in (
-          {WEIGHTS.eventAttended.points} pts). 🎤 adds a demo (+
-          {BONUS.demoPoints}) and signs them in too.
+          {WEIGHTS.eventAttended.points} pts).{" "}
+          <Icon icon={MonitorPlay} tone="accent" /> Demo adds +
+          {BONUS.demoPoints} and signs them in too.
         </p>
       </div>
 
@@ -53,7 +56,11 @@ export default async function CheckinPage({
         aria-label="Week"
         className="flex flex-wrap items-center gap-2 font-bold tracking-wider uppercase"
       >
-        <WeekLink href={weeks[i + 1] && href(weeks[i + 1])} label="◀ Earlier" />
+        <WeekLink
+          href={weeks[i + 1] && href(weeks[i + 1])}
+          label="Earlier"
+          icon="prev"
+        />
         <WeekSelect
           value={week}
           options={weeks.map((w, n) => ({
@@ -64,7 +71,8 @@ export default async function CheckinPage({
         />
         <WeekLink
           href={i > 0 ? href(weeks[i - 1]) : undefined}
-          label="Later ▶"
+          label="Later"
+          icon="next"
         />
       </nav>
       {i > 0 && (
@@ -88,16 +96,34 @@ export default async function CheckinPage({
   );
 }
 
-function WeekLink({ href, label }: { href?: string; label: string }) {
+function WeekLink({
+  href,
+  label,
+  icon,
+}: {
+  href?: string;
+  label: string;
+  icon: "prev" | "next";
+}) {
   const cls =
-    "border-ink inline-flex min-h-11 items-center border-2 px-3 whitespace-nowrap";
+    "border-ink inline-flex min-h-11 items-center gap-1 border-2 px-3 whitespace-nowrap";
+  const body =
+    icon === "prev" ? (
+      <>
+        <Icon icon={ChevronLeft} /> {label}
+      </>
+    ) : (
+      <>
+        {label} <Icon icon={ChevronRight} />
+      </>
+    );
   return href ? (
     <Link href={href} className={cn(cls, "hover:bg-paper")}>
-      {label}
+      {body}
     </Link>
   ) : (
     <span className={cn(cls, "opacity-35")} aria-disabled="true">
-      {label}
+      {body}
     </span>
   );
 }

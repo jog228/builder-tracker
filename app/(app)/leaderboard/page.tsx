@@ -1,3 +1,4 @@
+import { Construction } from "lucide-react";
 import Link from "next/link";
 import { EmptyState, toggleClass } from "@/components/bs/bits";
 import { Eyebrow, PageTitle } from "@/components/bs/site";
@@ -66,7 +67,7 @@ export default async function LeaderboardPage({
       )}
 
       {rows.length === 0 ? (
-        <EmptyState icon="🏗️">
+        <EmptyState icon={Construction}>
           No scores yet. They appear after the next score computation.
         </EmptyState>
       ) : (

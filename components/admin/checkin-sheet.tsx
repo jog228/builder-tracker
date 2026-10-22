@@ -1,10 +1,19 @@
 "use client";
 
+import {
+  Check,
+  MonitorPlay,
+  TriangleAlert,
+  Undo2,
+  UserMinus,
+  type LucideIcon,
+} from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { setCheckin } from "@/app/(app)/admin/checkin/actions";
 import { MemberAvatar } from "@/components/bs/avatar";
+import { Icon } from "@/components/bs/icon";
 import type { CheckinTarget } from "@/lib/attendance/checkin";
 import type { SheetMember } from "@/lib/data/checkin";
 import { cn } from "@/lib/utils";
@@ -16,6 +25,7 @@ type Toast =
       id: string;
       name: string;
       text: string;
+      icon: LucideIcon;
       prev: CheckinTarget;
     }
   | { kind: "error"; text: string };
@@ -57,7 +67,7 @@ export function WeekSelect({
   );
 }
 
-/** "Crew sign-in" sheet: tap to sign in, 🎤 for a demo, saves instantly. */
+/** "Crew sign-in" sheet: tap to sign in, Demo for a demo, saves instantly. */
 export function CheckinSheet({
   eventId,
   members,
@@ -103,19 +113,23 @@ export function CheckinSheet({
     const next = { present: target.present || target.demo, demo: target.demo };
     setRows((r) => ({ ...r, [m.id]: { ...r[m.id], ...next } }));
     if (undoable) {
-      const text =
+      const [icon, text]: [LucideIcon, string] =
         next.demo && !prev.demo
-          ? `🎤 ${m.name} demoed (+${demoPoints})`
+          ? [MonitorPlay, `${m.name} demoed (+${demoPoints})`]
           : next.present && !prev.present
-            ? `${m.name} signed in`
+            ? [Check, `${m.name} signed in`]
             : !next.present && prev.present
-              ? `${m.name} removed${prev.demo ? " (demo revoked)" : ""}`
-              : `${m.name}: demo removed`;
+              ? [
+                  UserMinus,
+                  `${m.name} removed${prev.demo ? " (demo revoked)" : ""}`,
+                ]
+              : [MonitorPlay, `${m.name}: demo removed`];
       showToast({
         kind: "undo",
         id: m.id,
         name: m.name,
         text,
+        icon,
         prev: prevTarget,
       });
     }
@@ -218,11 +232,12 @@ export function CheckinSheet({
                 </span>
                 <span
                   className={cn(
-                    "text-xs font-bold tracking-[0.14em] uppercase",
+                    "inline-flex items-center gap-1 text-xs font-bold tracking-[0.14em] uppercase",
                     !r.present && "text-slate",
                   )}
                 >
-                  {r.present ? "✓ Signed in" : "Tap to sign in"}
+                  {r.present && <Icon icon={Check} />}
+                  {r.present ? "Signed in" : "Tap to sign in"}
                 </span>
                 {r.present && r.recordedAt && (
                   <span className="text-[0.72rem] leading-tight text-[#111]/70">
@@ -237,11 +252,12 @@ export function CheckinSheet({
                 aria-label={`${r.demo ? "Remove" : "Add"} demo for ${m.name}`}
                 onClick={() => apply(m, { present: true, demo: !r.demo }, true)}
                 className={cn(
-                  "border-ink min-h-11 border-t-2 text-sm font-bold tracking-[0.1em] uppercase",
+                  "border-ink inline-flex min-h-11 items-center justify-center gap-1.5 border-t-2 text-sm font-bold tracking-[0.1em] uppercase",
                   r.demo ? "bg-ink text-safety" : "hover:bg-concrete",
                 )}
               >
-                🎤 {r.demo ? `Demoed +${demoPoints}` : "Demo"}
+                <Icon icon={MonitorPlay} />
+                {r.demo ? `Demoed +${demoPoints}` : "Demo"}
               </button>
             </li>
           );
@@ -270,6 +286,10 @@ export function CheckinSheet({
               paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
             }}
           >
+            <Icon
+              icon={toast.kind === "error" ? TriangleAlert : toast.icon}
+              className={cn("text-xl", toast.kind === "undo" && "text-safety")}
+            />
             <span className="min-w-0 flex-1 truncate font-semibold">
               {toast.text}
             </span>
@@ -281,8 +301,9 @@ export function CheckinSheet({
                   setToast(null);
                   apply(m, toast.prev, false);
                 }}
-                className="bg-safety min-h-10 shrink-0 border-2 border-[#111] px-4 font-bold tracking-[0.1em] text-[#111] uppercase"
+                className="bg-safety inline-flex min-h-10 shrink-0 items-center gap-1.5 border-2 border-[#111] px-4 font-bold tracking-[0.1em] text-[#111] uppercase"
               >
+                <Icon icon={Undo2} />
                 Undo
               </button>
             )}

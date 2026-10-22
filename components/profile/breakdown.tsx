@@ -1,15 +1,29 @@
+import {
+  CalendarCheck,
+  Code,
+  Flame,
+  Gift,
+  GitMerge,
+  Handshake,
+  Heart,
+  MonitorPlay,
+  Rocket,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
+import { Icon } from "@/components/bs/icon";
 import { COMPONENT_LABELS, type Breakdown } from "@/lib/scoring/compute";
 
-const ICONS: Record<keyof Breakdown, string> = {
-  progress: "📈",
-  shipped: "🚀",
-  help: "🤝",
-  likes: "❤️",
-  events: "📅",
-  githubDays: "💻",
-  githubPrs: "🔀",
-  streak: "🔥",
-  bonus: "🎁",
+const ICONS: Record<keyof Breakdown, LucideIcon> = {
+  progress: TrendingUp,
+  shipped: Rocket,
+  help: Handshake,
+  likes: Heart,
+  events: CalendarCheck,
+  githubDays: Code,
+  githubPrs: GitMerge,
+  streak: Flame,
+  bonus: Gift,
 };
 
 const UNITS: Record<keyof Breakdown, string> = {
@@ -46,7 +60,12 @@ export function ScoreBreakdown({
           <li key={k}>
             <div className="flex items-baseline justify-between gap-2">
               <span className={c.points ? "font-semibold" : "text-slate"}>
-                {ICONS[k]} {COMPONENT_LABELS[k]}
+                <Icon
+                  icon={ICONS[k]}
+                  tone={c.points ? "accent" : "ink"}
+                  className="mr-1.5"
+                />
+                {COMPONENT_LABELS[k]}
                 <span className="text-slate ml-2 text-sm font-normal">
                   {c.count} {UNITS[k]}
                   {c.count === 1 ? "" : "s"}
@@ -72,6 +91,10 @@ export function ScoreBreakdown({
               <ul className="text-slate mt-2 flex flex-col gap-1 pl-6 text-sm">
                 {breakdown.bonus.lines.map((l, i) => (
                   <li key={i}>
+                    <Icon
+                      icon={l.type === "demo" ? MonitorPlay : Gift}
+                      className="mr-1"
+                    />
                     {l.label}{" "}
                     <span className="text-ink font-bold">+{l.points}</span>
                   </li>

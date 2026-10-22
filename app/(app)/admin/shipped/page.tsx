@@ -1,3 +1,4 @@
+import { BadgeCheck } from "lucide-react";
 import Link from "next/link";
 import { Card, EmptyState, SectionTitle } from "@/components/bs/bits";
 import { Eyebrow, PageTitle, Stamp } from "@/components/bs/site";
@@ -32,7 +33,7 @@ export default async function ShippedReviewPage() {
           ))}
         </div>
       ) : (
-        <EmptyState icon="✅">
+        <EmptyState icon={BadgeCheck}>
           All caught up. Nothing waiting for review.
         </EmptyState>
       )}

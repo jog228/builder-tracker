@@ -1,11 +1,13 @@
 "use client";
 
+import { Crown } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useMemo, useState } from "react";
 import { MemberAvatar } from "@/components/bs/avatar";
 import { RankChange, Streak, toggleClass } from "@/components/bs/bits";
 import { CountUp } from "@/components/bs/count-up";
+import { badgeIcon, Icon } from "@/components/bs/icon";
 import { FloorsBar } from "@/components/bs/floors-bar";
 import type { LeaderboardRow } from "@/lib/data/leaderboard";
 import { plural } from "@/lib/format";
@@ -133,6 +135,14 @@ export function RankedList({
                     />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex min-w-0 items-center gap-2">
+                        {r.rank === 1 && (
+                          <Icon
+                            icon={Crown}
+                            tone="accent"
+                            label="Leader"
+                            className="text-[1.15rem]"
+                          />
+                        )}
                         <span className="truncate text-[1.15rem] leading-tight font-bold group-hover:underline">
                           {r.name}
                         </span>
@@ -154,7 +164,7 @@ export function RankedList({
                                 key={b.slug}
                                 title={`${b.name}: ${b.description}`}
                               >
-                                {b.icon}
+                                <Icon icon={badgeIcon(b.slug)} label={b.name} />
                               </span>
                             ))}
                           </span>

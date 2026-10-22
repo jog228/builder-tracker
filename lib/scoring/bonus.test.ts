@@ -100,10 +100,11 @@ describe("bonusComponent", () => {
     );
     expect(total).toBe(30 + 50 + 200);
     expect(lines.map((l) => `${l.label} +${l.points}`)).toEqual([
-      "🎤 Demoed at Hack Night +30",
-      "🎤 Demoed at an event +50",
+      "Demoed at Hack Night +30",
+      "Demoed at an event +50",
       "Helped run the workshop +200",
     ]);
+    expect(lines.map((l) => l.type)).toEqual(["demo", "demo", "other"]);
   });
 });
 

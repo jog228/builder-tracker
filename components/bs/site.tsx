@@ -1,3 +1,5 @@
+import { BadgeCheck, Clock, TrendingUp, type LucideIcon } from "lucide-react";
+import { Icon } from "@/components/bs/icon";
 import { cn } from "@/lib/utils";
 
 const TAPE = Array(6).fill("CAUTION · BUILDERS AT WORK").join(" · ");
@@ -17,7 +19,13 @@ const STAMP_TONES = {
   neutral: "border-slate text-slate -rotate-2",
 };
 
-/** Rubber stamp, e.g. APPROVED / PENDING on a permit. */
+const STAMP_ICONS: Record<keyof typeof STAMP_TONES, LucideIcon> = {
+  approved: BadgeCheck,
+  pending: Clock,
+  neutral: TrendingUp,
+};
+
+/** Rubber stamp, e.g. APPROVED / PENDING on a permit, with its icon. */
 export function Stamp({
   tone,
   children,
@@ -30,11 +38,12 @@ export function Stamp({
   return (
     <span
       className={cn(
-        "inline-block shrink-0 border-[3px] px-2.5 py-0.5 text-sm font-bold tracking-[0.12em] uppercase",
+        "inline-flex shrink-0 items-center gap-1.5 border-[3px] px-2.5 py-0.5 text-sm font-bold tracking-[0.12em] uppercase",
         STAMP_TONES[tone],
         className,
       )}
     >
+      <Icon icon={STAMP_ICONS[tone]} />
       {children}
     </span>
   );

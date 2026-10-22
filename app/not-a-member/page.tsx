@@ -1,4 +1,6 @@
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { Icon } from "@/components/bs/icon";
 import { CautionTape, Eyebrow } from "@/components/bs/site";
 import { GoogleButton } from "@/app/login/login-form";
 
@@ -39,9 +41,9 @@ export default function NotAMemberPage() {
             </div>
             <Link
               href="/login"
-              className="text-slate hover:text-rust mt-4 inline-block text-sm font-bold tracking-widest uppercase"
+              className="text-slate hover:text-rust mt-4 inline-flex items-center gap-1.5 text-sm font-bold tracking-widest uppercase"
             >
-              ← Back to sign in
+              <Icon icon={ArrowLeft} /> Back to sign in
             </Link>
           </div>
         </div>

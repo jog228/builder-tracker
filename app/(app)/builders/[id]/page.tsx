@@ -1,5 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  ArrowLeft,
+  Calculator,
+  CalendarDays,
+  Gift,
+  Heart,
+  MonitorPlay,
+  NotebookPen,
+} from "lucide-react";
 import { MemberAvatar } from "@/components/bs/avatar";
 import {
   Card,
@@ -10,6 +19,7 @@ import {
   toggleClass,
 } from "@/components/bs/bits";
 import { CountUp } from "@/components/bs/count-up";
+import { badgeIcon, Icon } from "@/components/bs/icon";
 import { Eyebrow } from "@/components/bs/site";
 import { ScoreBreakdown } from "@/components/profile/breakdown";
 import { FlagShippedButton } from "@/components/profile/flag-button";
@@ -43,9 +53,9 @@ export default async function BuilderPage({
     <div className="flex flex-col gap-6">
       <Link
         href="/leaderboard"
-        className="text-slate hover:text-rust self-start font-bold tracking-wider uppercase"
+        className="text-slate hover:text-rust inline-flex items-center gap-1.5 self-start font-bold tracking-wider uppercase"
       >
-        ← Progress schedule
+        <Icon icon={ArrowLeft} /> Progress schedule
       </Link>
 
       {/* Header */}
@@ -132,7 +142,7 @@ export default async function BuilderPage({
                   </div>
                 </>
               ) : (
-                <EmptyState icon="🧮">No score yet.</EmptyState>
+                <EmptyState icon={Calculator}>No score yet.</EmptyState>
               )}
             </Card>
           )}
@@ -155,7 +165,7 @@ export default async function BuilderPage({
                       : "border-dash border-dashed opacity-45 grayscale",
                   )}
                 >
-                  <span className="text-2xl">{b.icon}</span>
+                  <Icon icon={badgeIcon(b.slug)} className="text-2xl" />
                   <span className="text-xs leading-tight font-bold uppercase">
                     {b.name}
                   </span>
@@ -191,7 +201,11 @@ export default async function BuilderPage({
                         <span className="text-ink font-bold">{u.project}</span>
                       )}
                       <span>{shortDate(u.createdAt)}</span>
-                      {u.likes > 0 && <span>❤️ {u.likes}</span>}
+                      {u.likes > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <Icon icon={Heart} label="Likes" /> {u.likes}
+                        </span>
+                      )}
                       {viewer.isAdmin &&
                         !excluded &&
                         u.category === "progress_update" &&
@@ -214,7 +228,7 @@ export default async function BuilderPage({
                 ))}
               </ul>
             ) : (
-              <EmptyState icon="📝">
+              <EmptyState icon={NotebookPen}>
                 {excluded
                   ? "Exec board posts aren't scored."
                   : "No scored updates yet."}
@@ -232,9 +246,13 @@ export default async function BuilderPage({
                     className="flex items-baseline justify-between gap-3"
                   >
                     <span>
+                      <Icon
+                        icon={b.type === "demo" ? MonitorPlay : Gift}
+                        className="mr-1.5"
+                      />
                       {b.type === "demo"
-                        ? `🎤 Demoed at ${b.eventName ?? "an event"}`
-                        : `🎁 ${b.reason}`}
+                        ? `Demoed at ${b.eventName ?? "an event"}`
+                        : b.reason}
                       <span className="text-slate ml-2 text-sm">
                         {shortDate(b.awardedAt)}
                       </span>
@@ -262,7 +280,7 @@ export default async function BuilderPage({
                 ))}
               </ul>
             ) : (
-              <EmptyState icon="📅">
+              <EmptyState icon={CalendarDays}>
                 Attendance tracking is coming soon.
               </EmptyState>
             )}

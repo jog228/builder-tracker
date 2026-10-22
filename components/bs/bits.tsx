@@ -1,3 +1,13 @@
+import {
+  CalendarCheck,
+  Clock,
+  Flame,
+  Handshake,
+  Rocket,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
+import { Icon } from "@/components/bs/icon";
 import { cn } from "@/lib/utils";
 
 /** ▲ / ▼ movement since the previous day's ranking. */
@@ -31,7 +41,7 @@ export function RankChange({
   );
 }
 
-/** Current weekly streak as "3 WK". Nothing when there's no streak. */
+/** Current weekly streak as a flame + "3 WK". Nothing when there's no streak. */
 export function Streak({
   weeks,
   size = "sm",
@@ -43,11 +53,12 @@ export function Streak({
   return (
     <span
       className={cn(
-        "tabular font-semibold whitespace-nowrap uppercase",
+        "tabular inline-flex items-center gap-1 font-semibold whitespace-nowrap uppercase",
         size === "lg" ? "text-lg" : "text-base",
       )}
       title={`${weeks}-week update streak`}
     >
+      <Icon icon={Flame} tone="accent" />
       {weeks} wk
     </span>
   );
@@ -94,35 +105,46 @@ export function EmptyState({
   icon,
   children,
 }: {
-  icon: string;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
     <div className="border-dash text-slate flex flex-col items-center gap-2 border-2 border-dashed px-4 py-8 text-center">
-      <span className="text-2xl">{icon}</span>
+      <Icon icon={icon} tone="accent" className="text-3xl" />
       {children}
     </div>
   );
 }
 
-const CATEGORY_STYLES: Record<string, { label: string; className: string }> = {
+const CATEGORY_STYLES: Record<
+  string,
+  { label: string; className: string; icon?: LucideIcon }
+> = {
   progress_update: {
     label: "Progress",
     className: "border-ink bg-steel/35",
+    icon: TrendingUp,
   },
   shipped_candidate: {
     label: "Shipped?",
     className: "border-rust text-rust",
+    icon: Clock,
   },
   shipped: {
     label: "Shipped",
     className: "border-ok bg-ok text-paper",
+    icon: Rocket,
   },
   help_given: {
     label: "Helped",
     className: "border-ink bg-safety",
+    icon: Handshake,
   },
-  event_related: { label: "Event", className: "border-ink" },
+  event_related: {
+    label: "Event",
+    className: "border-ink",
+    icon: CalendarCheck,
+  },
   chatter: { label: "Chatter", className: "border-dash text-slate" },
 };
 
@@ -131,10 +153,11 @@ export function CategoryChip({ category }: { category: string }) {
   return (
     <span
       className={cn(
-        "border-2 px-1.5 py-px text-xs font-bold tracking-wider uppercase",
+        "inline-flex items-center gap-1 border-2 px-1.5 py-px text-xs font-bold tracking-wider uppercase",
         s.className,
       )}
     >
+      {s.icon && <Icon icon={s.icon} />}
       {s.label}
     </span>
   );

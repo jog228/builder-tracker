@@ -1,3 +1,4 @@
+import { CalendarDays } from "lucide-react";
 import { Card, EmptyState, SectionTitle } from "@/components/bs/bits";
 import {
   AttendanceChart,
@@ -72,7 +73,7 @@ export default async function StatsPage() {
         {s.attendance.length ? (
           <AttendanceChart data={s.attendance} />
         ) : (
-          <EmptyState icon="📅">
+          <EmptyState icon={CalendarDays}>
             Attendance shows up here once check-ins start (Phase 3).
           </EmptyState>
         )}
