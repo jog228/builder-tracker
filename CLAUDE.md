@@ -16,18 +16,28 @@ at a time, and stop for review after each phase.
 - `npm run dev`: dev server at http://localhost:3000
 - `npm run lint` / `npm run typecheck` / `npm run format`
 - `npm run build`: production build
+- `npm run db:push`: apply `supabase/migrations/*.sql` to the linked project (Supabase CLI)
+- `npm test`: Vitest unit tests (`*.test.ts` next to the code)
+- `npm run groupme:list-groups` / `groupme:backfill` / `groupme:sync` / `groupme:purge-raw`
+- `npm run set-exec -- [--dry-run] "<GroupMe name or id>" ...`: mark exec board members (admin + excluded from rankings)
+
+Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they can import `server-only` modules.
 
 ## Conventions
 
 - Path alias `@/*` maps to the repo root (`@/lib/...`, `@/components/...`).
 - Supabase clients:
-  - `lib/supabase/client.ts`: Client Components (anon key, RLS applies)
+  - `lib/supabase/client.ts`: Client Components (publishable key, RLS applies)
   - `lib/supabase/server.ts`: Server Components, Actions, Route Handlers (user session, RLS applies)
-  - `lib/supabase/admin.ts`: service role, **bypasses RLS**. Only for cron routes and scripts. It is `server-only`.
+  - `lib/supabase/admin.ts`: secret key (`sb_secret_`), **bypasses RLS**. Only for cron routes and scripts. It is `server-only`.
 - UI components: add with `npx shadcn@latest add <name>`; they go into `components/ui/`.
 - Scoring weights live only in `lib/scoring/config.ts`. Scoring logic is pure functions with Vitest tests.
+- Exec board members (`members.exclude_from_rankings`) are ingested but never scored, ranked, badged, awarded, counted in stats, or given attendance rows. Query `ranked_members` (view) or use `isRankable()` from `lib/scoring/eligibility.ts`. DB triggers reject derived rows for them as a backstop. Likes they _give_ still count for recipients. See PLAN.md §4a.
 - Cron routes live under `app/api/cron/*` and must check `Authorization: Bearer ${CRON_SECRET}`.
-- Standalone scripts go in `scripts/` and run with `npx tsx`.
+- Standalone scripts go in `scripts/` and get an npm script entry.
+- Schema changes are new files in `supabase/migrations/` (never edit an applied migration).
+- GroupMe: `lib/groupme.ts` is the API client; `lib/groupme-sync.ts` holds the shared backfill/incremental logic. Incremental sync pages with `after_id` (not `since_id`, which skips messages when >100 arrive) and re-reads the last 7 days to refresh likes.
+- `messages.liked_by` stores GroupMe user ids (likers may not be members); `messages.sender_groupme_id` allows re-mapping senders to members.
 
 ## Guardrails
 

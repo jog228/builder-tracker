@@ -44,10 +44,13 @@ Put all of these in `.env.local` and **never commit them** (`.env.local` stays i
 
 ```
 members            id, display_name, avatar_url, email, role ('member'|'admin'),
-                   cohort, joined_at, active (bool)
+                   cohort, joined_at, active (bool), auth_user_id,
+                   exclude_from_rankings (bool, default false)  -- exec board, see §4a
+ranked_members     view: members where active and not exclude_from_rankings
 member_identities  member_id, groupme_user_id, github_username
-messages           id (GroupMe msg id), member_id, text, created_at,
-                   like_count, liked_by (uuid[]), has_attachment, raw (jsonb)
+messages           id (GroupMe msg id), member_id, sender_groupme_id, sender_type,
+                   text, created_at, like_count, liked_by (text[] of GroupMe user ids),
+                   has_attachment, raw (jsonb)
 message_scores     message_id, category ('progress_update'|'shipped'|'help_given'|
                    'event_related'|'chatter'), substance (0-3), summary, model, scored_at
 events             id, name, date, type ('meeting'|'workshop'|'hackathon'|'social'), weight
@@ -64,6 +67,20 @@ sync_runs          id, source, started_at, finished_at, status, cursor, error
 
 Row-level security: members can read everything (it's internal); only `role='admin'` can write `attendance`, `events`, `member_identities`, and `awards`. Only the service role (used by cron jobs) can write everything else.
 
+## 4a. Exec board exclusion
+
+Exec board members get `role='admin'` and `exclude_from_rankings=true`. Mark them with `npm run set-exec -- "<GroupMe name or user id>" ...` (later, a toggle on `/admin/members`).
+
+- **Still ingested:** their GroupMe messages sync like everyone else's, so the history stays complete.
+- **Never scored:** AI scoring skips their messages (no API cost).
+- **Never counted:** they never count toward any score, streak, badge, stat or award. They're left out of the leaderboard, Builder of the Month candidates, group-wide stats and `score_snapshots`.
+- **Attendance:** no attendance rows are created for them, and they're hidden from the check-in grid by default.
+- **Likes they give still count:** a like from an exec on another member's update counts for that member.
+- **One rule in code:** anything scored reads from the `ranked_members` view or calls `isRankable()` (`lib/scoring/eligibility.ts`).
+- **Database backstop:** triggers reject `attendance`, `score_snapshots`, `member_badges`, `awards` and `message_scores` rows for excluded members.
+- **When someone is excluded:** their snapshots, badges and message scores are deleted. Past attendance and awards are kept as history but filtered out at read time.
+- **Tested:** a unit test (`lib/scoring/rank.test.ts`) proves an excluded member never appears in rankings.
+
 ## 5. Scoring v1 (tune later)
 
 Monthly score = sum of these components, each capped so no single source dominates:
@@ -79,6 +96,8 @@ Monthly score = sum of these components, each capped so no single source dominat
 | GitHub: merged PRs | 5 each | 40 |
 | Streak bonus (consecutive weeks with an update) | +5 per week | 30 |
 
+Only rankable members are scored: `active` and not `exclude_from_rankings` (see §4a). Likes count by who *received* them, so an exec's like on someone's update still counts for that person.
+
 Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can tweak them. Also store a score breakdown with every snapshot so anyone can see *why* they rank where they do.
 
 ## 6. Phases
@@ -91,48 +110,51 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 
 ### Phase 1: GroupMe ingestion
 - `scripts/list-groups.ts`: prints your groups and their IDs
-- `lib/groupme.ts`: client for `GET https://api.groupme.com/v3/groups/:id/messages` (paginated with `before_id`, 100 per page; incremental with `since_id`) and `GET /groups/:id` for the member list
+- `lib/groupme.ts`: client for `GET https://api.groupme.com/v3/groups/:id/messages` (paginated with `before_id`, 100 per page; incremental with `after_id`, because `since_id` skips messages when more than 100 arrive) and `GET /groups/:id` for the member list
 - Backfill script: pulls the full history and upserts `members`, `member_identities`, `messages` (idempotent on message id)
 - `POST /api/cron/sync-groupme`: incremental sync that saves its cursor in `sync_runs`
+- `scripts/set-exec.ts`: takes GroupMe names or user ids and marks those members `role='admin'` + `exclude_from_rankings=true` (§4a)
 - **Done when:** the full history is in Supabase, and running the sync twice creates no duplicates.
 
 ### Phase 2: AI message scoring
 - `lib/scoring/classify.ts`: batches unscored messages (around 20 per call) and asks Claude for strict JSON: `{id, category, substance, summary}`
-- Skip messages under 15 characters and bot or system messages
+- Skip messages under 15 characters, bot or system messages, and messages from excluded (exec board) members, so they cost nothing
 - `POST /api/cron/score-messages`
 - Add a small eval set: 30 hand-labeled real messages, plus a script that reports accuracy
 - **Done when:** all messages are scored, the eval set is at least 80% accurate, and the cost per 1,000 messages is logged.
 
 ### Phase 3: Attendance (organizer-only)
 - `/admin/events`: create and edit events
-- `/admin/checkin/[eventId]`: a mobile-first grid of member avatars with names; tap to mark someone present (optimistic UI), plus search
-- `scripts/import-attendance.ts`: imports your historical CSV, fuzzy-matching names to members, and prints any it couldn't match
+- `/admin/checkin/[eventId]`: a mobile-first grid of member avatars with names; tap to mark someone present (optimistic UI), plus search. Exec board members are hidden by default, and no attendance rows are created for them.
+- `scripts/import-attendance.ts`: imports your historical CSV, fuzzy-matching names to members, and prints any it couldn't match. Rows for excluded members are skipped and reported.
 - **Done when:** an organizer can take attendance for 30 people in under a minute on a phone.
 
 ### Phase 4: Scores, the leaderboard UI, and auth
 - Supabase magic-link login, limited to emails in `members` (or `@lehigh.edu`)
-- `lib/scoring/compute.ts` → `score_snapshots` for the current month and all time; `POST /api/cron/compute-scores`
+- `lib/scoring/compute.ts` → `score_snapshots` for the current month and all time; `POST /api/cron/compute-scores`. It only computes for `ranked_members` and ranks with `rankMembers()`.
 - Pages:
   - `/leaderboard`: top-3 podium (animated), a full ranked list with rank change ▲▼, a month / all-time toggle, and filters
   - `/builders/[id]`: profile with score breakdown, activity heatmap, streak 🔥, badges, recent updates (with Claude's summaries), and events attended
-  - `/stats`: group-wide charts (updates per week, attendance trend, most active days and hours)
+  - `/stats`: group-wide charts (updates per week, attendance trend, most active days and hours), counting only `ranked_members`
+  - Exec board members don't appear on the leaderboard and have no score breakdown, streak or badges on their profiles
 - **Done when:** a logged-in member sees real rankings, and a logged-out visitor sees nothing.
 
 ### Phase 5: GitHub
-- `/admin/members`: link GitHub usernames (and fix any GroupMe ↔ member mismatches)
+- `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)
+- Don't count GitHub activity for excluded members
 - `lib/github.ts`: a GraphQL `contributionsCollection(from, to)` query per user for daily commit counts and PRs
 - `POST /api/cron/sync-github` (nightly)
 - **Done when:** GitHub components show up in scores and on profiles.
 
 ### Phase 6: Badges and Builder of the Month
-- Badge rules engine (`lib/badges/rules.ts`), run after scores are computed. Starter badges:
+- Badge rules engine (`lib/badges/rules.ts`), run after scores are computed, for rankable members only. "Most likes" and "every event" comparisons ignore excluded members. Starter badges:
   - **Shipper**: 3+ shipped posts
   - **Never Misses**: attended every event this month
   - **On Fire**: 4-week update streak
   - **Night Owl**: 5+ updates posted after midnight
   - **Crowd Favorite**: most likes in a month
   - **Helper**: 5+ `help_given`
-- `/admin/awards`: the month's top 5 with breakdowns; an admin picks the winner and writes a note
+- `/admin/awards`: the month's top 5 rankable members with breakdowns (exec board can't be candidates); an admin picks the winner and writes a note
 - `/hall-of-fame`: past winners
 - **Done when:** badges appear automatically and an admin can crown a Builder of the Month.
 
@@ -151,6 +173,7 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 - All syncs are idempotent and resumable
 - Don't store more GroupMe data than needed; keep `raw` only for debugging, and allow a purge
 - Scoring logic is pure functions with unit tests (Vitest)
+- Anything scored, ranked, badged, awarded or counted in stats goes through `ranked_members` / `isRankable()`. Never filter excluded members ad hoc.
 - No public routes yet. Everything except `/login` requires auth.
 
 ## 8. Later: hook into the public site
@@ -160,4 +183,4 @@ The public Builder Society site will live in the same Next.js app. Public pages 
 - Login: members' school emails, or a fixed allowlist?
 - Can members see the full ranking, or only the top 10 plus their own rank?
 - Event weights (e.g., hackathon = 2×)?
-- Should anyone be excluded from rankings (e.g., e-board)?
+- ~~Should anyone be excluded from rankings (e.g., e-board)?~~ Decided: yes, the exec board (§4a).
