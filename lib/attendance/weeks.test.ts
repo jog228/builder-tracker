@@ -75,6 +75,35 @@ describe("resolveWeek", () => {
   });
 });
 
+describe("picker value always matches an option", () => {
+  // The check-in <select> is blank if its value isn't one of its options.
+  // Walk every hour of the season so far (a UTC server's day boundary falls
+  // at 8 or 7 PM Eastern), with and without a ?week= param.
+  it("for any hour and any requested week", () => {
+    const start = Date.parse("2026-09-01T00:00:00Z");
+    const end = Date.parse("2026-12-31T23:00:00Z");
+    const params = [
+      undefined,
+      "2026-10-01",
+      "2026-10-08",
+      "2026-09-24",
+      "junk",
+    ];
+    for (let t = start; t <= end; t += 3_600_000) {
+      const now = new Date(t);
+      const weeks = pickerWeeks(now);
+      for (const p of params) {
+        const w = resolveWeek(p, now);
+        if (!weeks.includes(w))
+          throw new Error(
+            `${now.toISOString()} ?week=${p}: ${w} not in ${weeks}`,
+          );
+      }
+      expect(weeks.at(-1)).toBe("2026-09-28");
+    }
+  });
+});
+
 describe("labels", () => {
   it("labels the first meeting as the kickoff", () => {
     expect(meetingTitle("2026-10-01")).toBe("Kickoff · Thu, Oct 1");

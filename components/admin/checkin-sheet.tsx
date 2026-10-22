@@ -2,6 +2,7 @@
 
 import {
   Check,
+  ChevronDown,
   MonitorPlay,
   TriangleAlert,
   Undo2,
@@ -37,27 +38,51 @@ const timeFmt = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
 });
 
-/** Week dropdown; navigates on change. */
+/**
+ * Week dropdown; navigates on change. The closed state is drawn by us (the
+ * current label + a chevron), with the native <select> invisible on top: the
+ * system picker still opens (iOS wheel, keyboard, screen readers), but no
+ * browser's native select styling can hide or clip the label.
+ */
 export function WeekSelect({
   value,
   options,
+  className,
 }: {
   value: string;
   options: { value: string; href: string; label: string }[];
+  className?: string;
 }) {
   const router = useRouter();
+  // Always show something: the matching option, else the newest week.
+  const current = options.find((o) => o.value === value) ?? options[0];
   return (
-    <>
+    <div
+      className={cn(
+        "border-ink bg-paper focus-within:outline-rust relative flex min-h-11 min-w-0 items-center border-2 focus-within:outline-3 focus-within:outline-offset-2",
+        className,
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none flex w-full min-w-0 items-center justify-between gap-2 px-3 font-bold tracking-wider uppercase"
+      >
+        <span className="truncate">{current?.label}</span>
+        <Icon icon={ChevronDown} className="text-lg" />
+      </span>
       <label className="sr-only" htmlFor="week">
         Meeting week
       </label>
       <select
         id="week"
-        value={value}
-        onChange={(e) =>
-          router.push(options.find((o) => o.value === e.target.value)!.href)
-        }
-        className="border-ink bg-paper min-h-11 min-w-0 flex-1 border-2 px-2 text-base font-bold uppercase"
+        value={current?.value}
+        onChange={(e) => {
+          const next = options.find((o) => o.value === e.target.value);
+          if (next) router.push(next.href);
+        }}
+        // 16px+ keeps iOS Safari from zooming in when the picker opens.
+        className="absolute inset-0 h-full w-full cursor-pointer appearance-none opacity-0"
+        style={{ fontSize: 16 }}
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -65,7 +90,7 @@ export function WeekSelect({
           </option>
         ))}
       </select>
-    </>
+    </div>
   );
 }
 

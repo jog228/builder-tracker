@@ -55,14 +55,17 @@ export default async function CheckinPage({
 
       <nav
         aria-label="Week"
-        className="flex flex-wrap items-center gap-2 font-bold tracking-wider uppercase"
+        // Phone: the picker gets its own row, Earlier / Later share the next.
+        className="grid grid-cols-2 gap-2 font-bold tracking-wider uppercase sm:flex sm:items-center"
       >
         <WeekLink
           href={weeks[i + 1] && href(weeks[i + 1])}
           label="Earlier"
           icon="prev"
+          disabledHint="No earlier meetings this season"
         />
         <WeekSelect
+          className="col-span-2 row-start-1 sm:flex-1"
           value={week}
           options={weeks.map((w, n) => ({
             value: w,
@@ -74,6 +77,7 @@ export default async function CheckinPage({
           href={i > 0 ? href(weeks[i - 1]) : undefined}
           label="Later"
           icon="next"
+          disabledHint="No later meetings yet"
         />
       </nav>
       {i > 0 && (
@@ -102,13 +106,16 @@ function WeekLink({
   href,
   label,
   icon,
+  disabledHint,
 }: {
   href?: string;
   label: string;
   icon: "prev" | "next";
+  /** Tooltip (title, also its accessible description) when there's nowhere to go. */
+  disabledHint: string;
 }) {
   const cls =
-    "border-ink inline-flex min-h-11 items-center gap-1 border-2 px-3 whitespace-nowrap";
+    "inline-flex min-h-11 items-center justify-center gap-1 border-2 px-3 whitespace-nowrap";
   const body =
     icon === "prev" ? (
       <>
@@ -120,11 +127,20 @@ function WeekLink({
       </>
     );
   return href ? (
-    <Link href={href} className={cn(cls, "hover:bg-paper")}>
+    <Link href={href} className={cn(cls, "border-ink hover:bg-paper")}>
       {body}
     </Link>
   ) : (
-    <span className={cn(cls, "opacity-35")} aria-disabled="true">
+    // Same shape, clearly off: dashed muted border, muted text, no pointer.
+    <span
+      role="link"
+      aria-disabled="true"
+      title={disabledHint}
+      className={cn(
+        cls,
+        "border-dash text-slate/55 bg-concrete cursor-not-allowed border-dashed select-none",
+      )}
+    >
       {body}
     </span>
   );
