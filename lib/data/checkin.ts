@@ -1,7 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CheckinRow, CheckinStore } from "@/lib/attendance/checkin";
-import { meetingDate } from "@/lib/attendance/weeks";
 import { WEEKLY_MEETING } from "@/lib/scoring/config";
 import { fetchAll } from "@/lib/supabase/fetch-all";
 
@@ -10,18 +9,45 @@ import { fetchAll } from "@/lib/supabase/fetch-all";
 
 const UNIQUE = "23505";
 
-/** The week's "Weekly Meeting", created on first open. */
-export async function ensureWeeklyMeeting(
+export type MeetingRow = {
+  id: string;
+  name: string;
+  date: string;
+  start_time: string | null;
+  weight: number;
+};
+
+const MEETING_COLUMNS = "id, name, date, start_time, weight";
+
+/** Every meeting (newest first), for the picker and "+ New meeting" defaults. */
+export async function listMeetings(
   supabase: SupabaseClient,
-  week: string,
+): Promise<MeetingRow[]> {
+  const { data, error } = await supabase
+    .from("events")
+    .select(MEETING_COLUMNS)
+    .eq("type", "meeting")
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * The meeting on `date`, created on first open if it's a season week's usual
+ * meeting day (copying the latest meeting's title, weight and time). One
+ * meeting per date: the database's unique index settles races.
+ */
+export async function ensureMeetingOn(
+  supabase: SupabaseClient,
+  date: string,
   createdBy: string,
-) {
-  const date = meetingDate(week);
+  latest: MeetingRow | null,
+): Promise<MeetingRow> {
   const find = () =>
     supabase
       .from("events")
-      .select("id, name, date")
-      .eq("weekly", true)
+      .select(MEETING_COLUMNS)
+      .eq("type", "meeting")
       .eq("date", date)
       .maybeSingle();
   const existing = await find();
@@ -31,17 +57,18 @@ export async function ensureWeeklyMeeting(
   const { data, error } = await supabase
     .from("events")
     .insert({
-      name: WEEKLY_MEETING.name,
+      name: latest?.name ?? WEEKLY_MEETING.name,
       date,
       type: "meeting",
-      weight: WEEKLY_MEETING.weight,
+      weight: latest?.weight ?? WEEKLY_MEETING.weight,
+      start_time: latest?.start_time ?? null,
       weekly: true,
       created_by: createdBy,
     })
-    .select("id, name, date")
+    .select(MEETING_COLUMNS)
     .single();
   if (!error) return data;
-  // Another admin opened the same week at the same moment.
+  // Another admin opened the same date at the same moment.
   if (error.code === UNIQUE) {
     const again = await find();
     if (again.data) return again.data;
@@ -149,10 +176,11 @@ export type SheetMember = {
 /** One week's sign-in sheet: rankable members only (exec board hidden). */
 export async function getCheckinSheet(
   supabase: SupabaseClient,
-  week: string,
+  date: string,
   viewerId: string,
+  latest: MeetingRow | null,
 ) {
-  const event = await ensureWeeklyMeeting(supabase, week, viewerId);
+  const event = await ensureMeetingOn(supabase, date, viewerId, latest);
   const [members, attendance, demos, admins, execs] = await Promise.all([
     fetchAll<{ id: string; display_name: string; avatar_url: string | null }>(
       (f, t) =>

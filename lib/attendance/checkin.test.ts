@@ -114,6 +114,38 @@ describe("applyCheckin authorization (server layer)", () => {
     expect(writes()).toBe(0);
   });
 
+  it("refuses sign-ins (and demos) before the meeting's date", async () => {
+    for (const target of [
+      { present: true, demo: false },
+      { present: true, demo: true },
+    ]) {
+      const { store, writes } = fakeStore();
+      const res = await applyCheckin(
+        ADMIN,
+        store,
+        { eventId: EVENT, memberId: MEMBER, target },
+        "2026-10-21", // the day before the Oct 22 meeting
+      );
+      expect(res).toMatchObject({ ok: false, status: 409 });
+      expect(writes()).toBe(0);
+    }
+  });
+
+  it("opens sign-ins on the meeting's date", async () => {
+    const { store } = fakeStore();
+    const res = await applyCheckin(
+      ADMIN,
+      store,
+      {
+        eventId: EVENT,
+        memberId: MEMBER,
+        target: { present: true, demo: false },
+      },
+      "2026-10-22",
+    );
+    expect(res).toMatchObject({ ok: true });
+  });
+
   it("rejects malformed ids and unknown meetings", async () => {
     const { store, writes } = fakeStore();
     expect(

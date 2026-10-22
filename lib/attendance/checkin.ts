@@ -1,7 +1,8 @@
 // Check-in core: authorize, validate and reconcile one member's row on the
 // sheet. The server action wires in the real store (the admin's own session,
 // so RLS applies too); tests use a fake one.
-import { inSeason } from "@/lib/attendance/weeks";
+import { inSeason, meetingLabel } from "@/lib/attendance/weeks";
+import { localDate } from "@/lib/scoring/time";
 import { BONUS } from "@/lib/scoring/config";
 
 export type CheckinTarget = { present: boolean; demo: boolean };
@@ -52,6 +53,8 @@ export async function applyCheckin(
   viewer: CheckinViewer,
   store: CheckinStore,
   input: { eventId: string; memberId: string; target: CheckinTarget },
+  /** Club-time "YYYY-MM-DD"; sign-ins open on the meeting's date. */
+  today: string = localDate(new Date()),
 ): Promise<CheckinResult> {
   // Authorize before touching the store at all.
   if (!viewer?.isAdmin)
@@ -84,6 +87,12 @@ export async function applyCheckin(
       ok: false,
       status: 409,
       error: "That meeting is before the season started.",
+    };
+  if (event.date > today)
+    return {
+      ok: false,
+      status: 409,
+      error: `Sign-ins for ${meetingLabel(event.date)} open that day.`,
     };
   if (!member)
     return { ok: false, status: 404, error: "That member doesn't exist." };

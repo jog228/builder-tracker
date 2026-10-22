@@ -211,6 +211,11 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 - Every scoring cap is gone (they were 80 progress, 75 shipped, 25 help, 30 likes, 30 streak, 60/40 GitHub per month; the database had none left). No one had reached a cap, so no totals or ranks changed.
 - Leaderboard bars are relative to #1 (`barPercent()`: the leader is 100%, others points ÷ leader's, a 3% minimum for any non-zero score, empty when there are no points). Profiles show "X pts to pass [name]" (gap + 1) or "#1 — leading by X pts" (`standing()` in `lib/scoring/standing.ts`). Guests see the same.
 
+### Meeting days ✅
+- "+ New meeting" on `/admin/checkin` (admins only): date defaults to the Thursday after the latest meeting, time and title copy the latest meeting, and points stay as configured (15 sign-in, +30 demo). Create switches to the new meeting.
+- One meeting per date: unique index on `events(date) where type = 'meeting'` (no duplicates existed when it was added), checked on the server too; a taken date shows "There's already a meeting on Thu, Oct 29" with a link to open it.
+- The picker is date-based (`?date=`; old `?week=` links still work): season weeks plus every meeting, so future meetings appear and "Later" reaches them. Future meetings open with sign-ins locked until their date (server 409 + database trigger, which also covers demos).
+
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)
 - Project aliases (on `/admin/members/[id]`): list each member's project names with message counts, and merge variants into one canonical name (writes `project_aliases`). Shipped counting and the classifier's known-projects context pick up aliases automatically.

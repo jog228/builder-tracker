@@ -102,6 +102,7 @@ export function CheckinSheet({
   recorders,
   hiddenExecs,
   demoPoints,
+  opensOn = null,
 }: {
   eventId: string;
   /** The meeting's date; back-filled entries also show when they were entered. */
@@ -110,6 +111,8 @@ export function CheckinSheet({
   recorders: Record<string, string>;
   hiddenExecs: number;
   demoPoints: number;
+  /** For a future meeting: its label ("Thu, Oct 29"); tiles are locked until then. */
+  opensOn?: string | null;
 }) {
   const reduce = useReducedMotion();
   const [rows, setRows] = useState<Record<string, Row>>(() =>
@@ -232,6 +235,14 @@ export function CheckinSheet({
         </label>
       </div>
 
+      {opensOn && (
+        <p
+          role="status"
+          className="border-ink bg-concrete mx-3 mt-3 border-2 border-dashed px-3 py-2 font-semibold sm:mx-5 sm:mt-5"
+        >
+          Upcoming meeting. Sign-ins open on {opensOn}.
+        </p>
+      )}
       <ul className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 sm:gap-3 sm:p-5 lg:grid-cols-4">
         {visible.map((m) => {
           const r = rows[m.id];
@@ -247,6 +258,7 @@ export function CheckinSheet({
               <button
                 type="button"
                 aria-pressed={r.present}
+                disabled={!!opensOn}
                 onClick={() =>
                   apply(
                     m,
@@ -254,7 +266,7 @@ export function CheckinSheet({
                     true,
                   )
                 }
-                className="flex min-h-[112px] flex-1 flex-col items-center gap-1.5 px-2 pt-3 pb-2 text-center"
+                className="flex min-h-[112px] flex-1 flex-col items-center gap-1.5 px-2 pt-3 pb-2 text-center disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <MemberAvatar name={m.name} url={m.avatarUrl} size={52} />
                 <span className="line-clamp-2 leading-tight font-bold break-words">
@@ -267,7 +279,11 @@ export function CheckinSheet({
                   )}
                 >
                   {r.present && <Icon icon={Check} />}
-                  {r.present ? "Signed in" : "Tap to sign in"}
+                  {r.present
+                    ? "Signed in"
+                    : opensOn
+                      ? `Opens ${opensOn.replace(/^\w+, /, "")}`
+                      : "Tap to sign in"}
                 </span>
                 {r.present && r.recordedAt && (
                   <span className="text-[0.72rem] leading-tight text-[#111]/70">
@@ -282,9 +298,10 @@ export function CheckinSheet({
                 type="button"
                 aria-pressed={r.demo}
                 aria-label={`${r.demo ? "Remove" : "Add"} demo for ${m.name}`}
+                disabled={!!opensOn}
                 onClick={() => apply(m, { present: true, demo: !r.demo }, true)}
                 className={cn(
-                  "border-ink inline-flex min-h-11 items-center justify-center gap-1.5 border-t-2 text-sm font-bold tracking-[0.1em] uppercase",
+                  "border-ink inline-flex min-h-11 items-center justify-center gap-1.5 border-t-2 text-sm font-bold tracking-[0.1em] uppercase disabled:cursor-not-allowed disabled:opacity-60",
                   r.demo ? "bg-ink text-safety" : "hover:bg-concrete",
                 )}
               >
