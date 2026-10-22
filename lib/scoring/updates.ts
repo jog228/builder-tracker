@@ -18,8 +18,8 @@ export const countsForStreak = (p: Post) =>
   isUpdate(p) && p.substance >= STREAK_MIN_SUBSTANCE;
 
 /**
- * Nominal points for one post, before monthly caps (and, for shipped, before
- * the once-per-project rule): what the profile shows next to an update.
+ * Points for one post (for shipped, before the once-per-project rule): what
+ * the profile shows next to an update.
  */
 export function updatePoints(p: Post): number {
   if (p.category === "shipped") return WEIGHTS.shipped.points;

@@ -65,8 +65,7 @@ export type BonusLine = {
   by?: string | null;
 };
 
-/** One member's bonus line in the score breakdown. No cap. */
-/** One member's bonus line for one month. Bonuses are uncapped. */
+/** One member's bonus line for one month, in the score breakdown. */
 export function bonusComponent(
   countable: BonusRow[],
   eventNames: ReadonlyMap<string, string>,

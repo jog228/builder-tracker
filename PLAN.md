@@ -91,20 +91,20 @@ Exec board members get `role='admin'` and `exclude_from_rankings=true`. Mark the
 
 ## 5. Scoring v1 (tune later)
 
-Monthly score = sum of these components, each capped so no single source dominates:
+Monthly score = sum of these components. Nothing is capped: every item counts in full.
 
-| Component | Points | Cap / month |
-|---|---|---|
-| Progress update (substance ≥ 1, `UPDATE_MIN_SUBSTANCE`; 0 and chatter score nothing) | 10 each | 80 |
-| "Shipped" post: the classifier flags `shipped_candidate`, which counts **only after an exec member approves it**; once per member per project (`countableShipped()`, alias-aware) | 25 each | 75 |
-| Helping others (`help_given`), including sharing a useful article, link or tool in any channel | 5 each | 25 |
-| Likes received on update/shipped posts | 1 each | 30 |
-| Event attended | 15 × event weight | none |
-| GitHub: active coding days | 3 per day | 60 |
-| GitHub: merged PRs | 5 each | 40 |
-| Streak bonus (consecutive weeks with a detailed update, substance ≥ 2, `STREAK_MIN_SUBSTANCE`; same rule for the profile/leaderboard streak and the streak badge) | +5 per week | 30 |
-| Bonus points (manual: demos and "other") | demo default 30 (`BONUS.demoPoints`), admins can override; any amount for "other" | **none** |
-| Community help (`BONUS.community`: +5 or +10 from a profile, reason shown publicly) | +5 / +10 | none |
+| Component | Points |
+|---|---|
+| Progress update (substance ≥ 1, `UPDATE_MIN_SUBSTANCE`; 0 and chatter score nothing) | 10 each |
+| "Shipped" post: the classifier flags `shipped_candidate`, which counts **only after an exec member approves it**; once per member per project (`countableShipped()`, alias-aware) | 25 each |
+| Helping others (`help_given`), including sharing a useful article, link or tool in any channel | 5 each |
+| Likes received on update/shipped posts | 1 each |
+| Event attended | 15 × event weight |
+| GitHub: active coding days | 3 per day |
+| GitHub: merged PRs | 5 each |
+| Streak bonus (consecutive weeks with a detailed update, substance ≥ 2, `STREAK_MIN_SUBSTANCE`; same rule for the profile/leaderboard streak and the streak badge) | +5 per week |
+| Bonus points (manual: demos and "other") | demo default 30 (`BONUS.demoPoints`), admins can override; any amount for "other" |
+| Community help (`BONUS.community`: +5 or +10 from a profile, reason shown publicly) | +5 / +10 |
 
 Only rankable members are scored: `active` and not `exclude_from_rankings` (see §4a). Likes count by who *received* them, so an exec's like on someone's update still counts for that person.
 
@@ -171,9 +171,9 @@ Kept simple: weekly meetings only, no history import, no general events page yet
   - Emailed links land on `/auth/callback` (PKCE). For testing, `npm run login-link -- <email>` prints a one-time link (`/auth/confirm`, token hash) without sending email.
   - For emailed links to work, the Supabase project's Auth → URL Configuration must allow `http://localhost:3000/auth/callback` (and the production URL in Phase 8).
 - Scoring: `lib/scoring/compute.ts` (pure, unit-tested) with weights in `lib/scoring/config.ts`; `lib/scoring/compute-scores.ts` loads data and writes snapshots.
-  - Monthly caps apply per month, and all-time is the sum of capped months.
+  - No caps: every item counts in full, and all-time is the sum of the months.
   - Months and weeks are in America/New_York.
-  - A streak week is a week with a progress/shipped post of substance ≥ 1. The +5 bonus applies to each week whose previous week also had one.
+  - A streak week is a week with a progress/shipped post of substance ≥ 2 (`STREAK_MIN_SUBSTANCE`). The +5 bonus applies to each week whose previous week also had one.
   - Rank change (▲▼) compares with the last computation on an earlier day (`score_snapshots.prev_rank`).
   - Scores recompute right after any shipped decision. Otherwise they recompute via `npm run compute-scores` or the cron route.
 - `lib/scoring/compute.ts` → `score_snapshots` for the current month and all time; `POST /api/cron/compute-scores`. It only computes for `ranked_members` and ranks with `rankMembers()`.
@@ -206,6 +206,10 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 ### Guest (portfolio) view ✅
 - `/login` offers "Viewing as a guest? Enter password" (replacing the exec email link, which no exec relied on). `PORTFOLIO_PASSWORD` is checked on the server only, rate-limited (5 failures per IP and 30 overall per 15 minutes, `guest_login_attempts`, IPs hashed), and a correct password sets a signed, httpOnly cookie for about 7 days.
 - Guests are spectators: no Supabase user, member row or ranking. They see real data on the leaderboard, profiles and /how-it-works only, read through a select-only wrapper. Nav shows Leaderboard and How it works, plus a "Guest view · read-only · Exit" banner. Every write is blocked: hidden in the UI, 403 in server actions (no member session), and the anonymous role can't read or write anything in the database.
+
+### No caps; bars relative to #1 ✅
+- Every scoring cap is gone (they were 80 progress, 75 shipped, 25 help, 30 likes, 30 streak, 60/40 GitHub per month; the database had none left). No one had reached a cap, so no totals or ranks changed.
+- Leaderboard bars are relative to #1 (`barPercent()`: the leader is 100%, others points ÷ leader's, a 3% minimum for any non-zero score, empty when there are no points). Profiles show "X pts to pass [name]" (gap + 1) or "#1 — leading by X pts" (`standing()` in `lib/scoring/standing.ts`). Guests see the same.
 
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)
