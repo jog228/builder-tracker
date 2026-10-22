@@ -190,6 +190,13 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 - Nav: members see Leaderboard and Stats; admins also see Check-in and Permits.
 - Tests: `lib/access.test.ts` (allowlist, middleware decisions, and an inventory of every page/route in `app/`) and `app/(app)/admin/actions.test.ts` (each admin action returns 403 without touching the database).
 
+### "Now Building" profile card ✅
+- A site-sign card on profiles: the member's current project (newest named project from scored updates, via `project_aliases`) and a 1–2 sentence, ~35-word present-tense summary by `claude-haiku-5-5` from their real updates in the 4 weeks before their latest one, plus "From N updates · last post Oct 17".
+- `member_summaries` (member_id, project, summary, source_message_ids, update_count, last_post_at, model, generated_at, override_summary / override_by / override_at). Regenerated only when a member has a scored update the stored summary hasn't seen, at the end of the message-scoring job (no extra cron).
+- Prompt rules: only facts from their posts, no hype or invented details, no names (names are redacted before sending, and a summary that names a member is rejected), at most 2 sentences.
+- Fallbacks: no updates shows "No updates yet: post your progress in GroupMe to fill this in." Exec board members get no card (and a trigger rejects their rows).
+- Admins can edit the text on the profile (stored as an override with who and when, and they can reset to generated). Members can only view.
+
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)
 - Project aliases (on `/admin/members/[id]`): list each member's project names with message counts, and merge variants into one canonical name (writes `project_aliases`). Shipped counting and the classifier's known-projects context pick up aliases automatically.

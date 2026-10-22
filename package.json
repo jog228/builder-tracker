@@ -22,6 +22,7 @@
     "score-messages": "tsx --conditions=react-server --env-file=.env.local scripts/score-messages.ts",
     "eval:classifier": "tsx --conditions=react-server --env-file=.env.local scripts/eval-classifier.ts",
     "flag-shipped": "tsx --conditions=react-server --env-file=.env.local scripts/flag-shipped.ts",
+    "refresh-summaries": "tsx --conditions=react-server --env-file=.env.local scripts/refresh-summaries.ts",
     "compute-scores": "tsx --conditions=react-server --env-file=.env.local scripts/compute-scores.ts",
     "roster:import": "tsx --conditions=react-server --env-file=.env.local scripts/import-roster.ts",
     "set-email": "tsx --conditions=react-server --env-file=.env.local scripts/set-email.ts",

@@ -2,6 +2,7 @@ import "server-only";
 import { bonusDate } from "@/lib/scoring/bonus";
 import { countsForStreak, isUpdate, updatePoints } from "@/lib/scoring/updates";
 import { getWeeklyMeetings } from "@/lib/data/meetings";
+import type { SummaryRow } from "@/lib/summaries/now-building";
 import type { Breakdown, Streak } from "@/lib/scoring/compute";
 import type { ApprovalStatus } from "@/lib/scoring/shipped";
 import { effectiveCategory } from "@/lib/scoring/shipped";
@@ -64,6 +65,7 @@ export async function getProfile(memberId: string) {
     attendance,
     bonuses,
     meetings,
+    summary,
   ] = await Promise.all([
     supabase
       .from("score_snapshots")
@@ -118,6 +120,13 @@ export async function getProfile(memberId: string) {
       .eq("member_id", memberId)
       .is("revoked_at", null),
     getWeeklyMeetings(supabase),
+    supabase
+      .from("member_summaries")
+      .select(
+        "project, summary, update_count, last_post_at, generated_at, override_summary, override_at, editor:members!member_summaries_override_by_fkey(display_name)",
+      )
+      .eq("member_id", memberId)
+      .maybeSingle(),
   ]);
 
   const snap = (period: string, i: number): ProfileSnapshot | null => {
@@ -157,6 +166,23 @@ export async function getProfile(memberId: string) {
     member,
     /** Weekly meetings, for the attendance rate (meetingsHeld()). */
     meetings,
+    /** "Now Building" row (generated summary + any admin override), or null. */
+    summary: summary.data
+      ? ({
+          project: summary.data.project,
+          summary: summary.data.summary,
+          update_count: summary.data.update_count,
+          last_post_at: summary.data.last_post_at,
+          generated_at: summary.data.generated_at,
+          override_summary: summary.data.override_summary,
+          override_at: summary.data.override_at,
+          override_by_name:
+            one(
+              summary.data.editor as unknown as
+                { display_name: string } | { display_name: string }[] | null,
+            )?.display_name ?? null,
+        } satisfies SummaryRow)
+      : null,
     month: snap(month, 0),
     all: snap("all", 1),
     badges: (catalog.data ?? []).map((b: BadgeInfo) => ({

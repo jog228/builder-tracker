@@ -24,12 +24,14 @@ import { badgeIcon, Icon } from "@/components/bs/icon";
 import { Eyebrow } from "@/components/bs/site";
 import { ScoreBreakdown } from "@/components/profile/breakdown";
 import { FlagShippedButton } from "@/components/profile/flag-button";
+import { NowBuilding } from "@/components/profile/now-building";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
 import { attendanceRate, meetingsHeld } from "@/lib/attendance/meetings";
 import { requireViewer } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
 import { localDate, monthKey } from "@/lib/scoring/time";
+import { nowBuildingCard } from "@/lib/summaries/now-building";
 import { cn } from "@/lib/utils";
 
 export default async function BuilderPage({
@@ -49,6 +51,12 @@ export default async function BuilderPage({
   const { member } = p;
   const excluded = member.exclude_from_rankings;
   const shown = allTime ? p.all : p.month;
+  // Exec board (and inactive) members get no card.
+  const nowBuilding = nowBuildingCard(
+    member,
+    p.summary,
+    p.updates.some((u) => u.streak !== null && u.points > 0),
+  );
   const now = new Date();
   const attendance = attendanceRate(
     meetingsHeld(p.meetings, {
@@ -110,6 +118,14 @@ export default async function BuilderPage({
           </div>
         )}
       </Card>
+
+      {nowBuilding && (
+        <NowBuilding
+          memberId={member.id}
+          card={nowBuilding}
+          canEdit={viewer.isAdmin}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
         <div className="flex flex-col gap-6">

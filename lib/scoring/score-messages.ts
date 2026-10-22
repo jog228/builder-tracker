@@ -16,6 +16,10 @@ import {
   type SkipReason,
   type TokenUsage,
 } from "./classify";
+import {
+  refreshMemberSummaries,
+  type SummaryRunStats,
+} from "../summaries/refresh";
 import { KnownProjects, buildAliasMap, type ProjectAlias } from "./projects";
 
 // ─── Executors ──────────────────────────────────────────────────────────────
@@ -270,6 +274,8 @@ export type ScoreRunStats = {
   costUsd: number;
   costPer1kMessages: number | null;
   errors: string[];
+  /** "Now Building" summaries refreshed after scoring (or why that failed). */
+  summaries: SummaryRunStats | { error: string };
 };
 
 /** Scores every eligible unscored message and records the run in sync_runs. */
@@ -312,6 +318,14 @@ export async function scoreMessages(
       if (error) throw error;
     }
 
+    // Members with new scored updates get a fresh "Now Building" summary.
+    // Part of this job on purpose: the Hobby plan limits crons.
+    const summaries = await refreshMemberSummaries(db, executor).catch(
+      (err: unknown) => ({
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+
     const cost = costUsd(outcome.usage);
     const stats: ScoreRunStats = {
       model: CLASSIFIER.model,
@@ -328,6 +342,7 @@ export async function scoreMessages(
         ? Number(((cost / outcome.scores.length) * 1000).toFixed(4))
         : null,
       errors: [...new Set(outcome.failed.map((f) => f.error))],
+      summaries,
     };
 
     await db
