@@ -1,9 +1,9 @@
 // Manual bonus points (demos and "other"). Uncapped, shown as their own line in
 // the score breakdown and on profiles with their reason.
-import { BADGES } from "./config";
+import { BADGES, BONUS } from "./config";
 import { isRankable, type EligibilityFields } from "./eligibility";
 
-export type BonusType = "demo" | "other";
+export type BonusType = "demo" | "other" | "community";
 
 export type BonusRow = {
   id: string;
@@ -16,6 +16,8 @@ export type BonusRow = {
   revoked_at: string | null;
   /** The linked event's date ("YYYY-MM-DD"), when there is one. */
   event_date?: string | null;
+  /** Member id of the admin who awarded it. */
+  awarded_by?: string | null;
 };
 
 /**
@@ -59,23 +61,43 @@ export type BonusLine = {
   /** bonusDate(): the event's "YYYY-MM-DD", else the awarded_at timestamp. */
   date: string;
   awardedAt: string;
+  /** Display name of the admin who awarded it, when known. */
+  by?: string | null;
 };
 
 /** One member's bonus line in the score breakdown. No cap. */
+/**
+ * One member's bonus line for one month. Demo and "other" bonuses are
+ * uncapped; community points count up to BONUS.community.monthlyCap (the
+ * database refuses awards past it; this keeps scoring right regardless).
+ */
 export function bonusComponent(
   countable: BonusRow[],
   eventNames: ReadonlyMap<string, string>,
+  memberNames: ReadonlyMap<string, string> = new Map(),
 ): { total: number; lines: BonusLine[] } {
-  const lines = countable.map((r) => ({
-    type: r.type,
-    label:
-      r.type === "demo"
-        ? `Demoed at ${eventNames.get(r.event_id ?? "") ?? "an event"}`
-        : r.reason,
-    points: r.points,
-    date: bonusDate(r),
-    awardedAt: r.awarded_at,
-  }));
+  let communityLeft: number = BONUS.community.monthlyCap;
+  const lines = [...countable]
+    .sort((a, b) => a.awarded_at.localeCompare(b.awarded_at))
+    .map((r) => {
+      let points = r.points;
+      if (r.type === "community") {
+        points = Math.min(points, communityLeft);
+        communityLeft -= points;
+      }
+      return {
+        type: r.type,
+        label:
+          r.type === "demo"
+            ? `Demoed at ${eventNames.get(r.event_id ?? "") ?? "an event"}`
+            : r.reason,
+        points,
+        date: bonusDate(r),
+        awardedAt: r.awarded_at,
+        by: r.awarded_by ? (memberNames.get(r.awarded_by) ?? null) : null,
+      };
+    })
+    .filter((l) => l.points > 0);
   return { total: lines.reduce((sum, l) => sum + l.points, 0), lines };
 }
 

@@ -17,6 +17,7 @@ import { localDate, monthKey } from "./time";
 
 type MemberRow = {
   id: string;
+  display_name: string;
   active: boolean;
   exclude_from_rankings: boolean;
   member_identities:
@@ -50,7 +51,7 @@ async function loadInput(db: SupabaseClient) {
       db
         .from("members")
         .select(
-          "id, active, exclude_from_rankings, member_identities(groupme_user_id)",
+          "id, display_name, active, exclude_from_rankings, member_identities(groupme_user_id)",
         )
         .range(f, t),
     ),
@@ -89,7 +90,7 @@ async function loadInput(db: SupabaseClient) {
       db
         .from("bonus_points")
         .select(
-          "id, member_id, event_id, type, points, reason, awarded_at, revoked_at, events(date)",
+          "id, member_id, event_id, type, points, reason, awarded_at, awarded_by, revoked_at, events(date)",
         )
         .range(f, t),
     ),
@@ -143,6 +144,7 @@ async function loadInput(db: SupabaseClient) {
       event_date: one(ev)?.date ?? null,
     })),
     eventNames: new Map(events.map((e) => [e.id, e.name])),
+    memberNames: new Map(members.map((m) => [m.id, m.display_name])),
     aliases: buildAliasMap(aliases),
   };
 }

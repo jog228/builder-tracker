@@ -1,5 +1,6 @@
 import "server-only";
-import { bonusDate } from "@/lib/scoring/bonus";
+import { bonusDate, type BonusType } from "@/lib/scoring/bonus";
+import { communityUsed } from "@/lib/scoring/community";
 import { countsForStreak, isUpdate, updatePoints } from "@/lib/scoring/updates";
 import { getWeeklyMeetings } from "@/lib/data/meetings";
 import { BADGES } from "@/lib/scoring/config";
@@ -120,7 +121,9 @@ export async function getProfile(memberId: string) {
       .eq("member_id", memberId),
     supabase
       .from("bonus_points")
-      .select("id, type, points, reason, awarded_at, events(name, date)")
+      .select(
+        "id, type, points, reason, awarded_at, revoked_at, events(name, date), awarder:members!bonus_points_awarded_by_fkey(display_name)",
+      )
       .eq("member_id", memberId)
       .is("revoked_at", null),
     getWeeklyMeetings(supabase),
@@ -263,16 +266,26 @@ export async function getProfile(memberId: string) {
     bonuses: (bonuses.data ?? [])
       .map((b) => {
         const ev = one(b.events as { name: string; date: string }[]);
+        const awarder = one(
+          b.awarder as unknown as
+            { display_name: string } | { display_name: string }[] | null,
+        );
         return {
           id: b.id,
-          type: b.type as "demo" | "other",
+          type: b.type as BonusType,
           points: b.points,
           reason: b.reason,
           awardedAt: b.awarded_at,
+          awardedBy: awarder?.display_name ?? null,
           eventName: ev?.name ?? null,
           date: bonusDate({ event_date: ev?.date, awarded_at: b.awarded_at }),
         };
       })
       .sort((a, b) => b.date.localeCompare(a.date)),
+    /** Community points used this month (for the admin panel's "15 / 20"). */
+    communityThisMonth: communityUsed(
+      (bonuses.data ?? []).map((b) => ({ ...b, revoked_at: null })),
+      monthKey(new Date()),
+    ),
   };
 }

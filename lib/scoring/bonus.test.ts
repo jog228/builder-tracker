@@ -138,3 +138,44 @@ describe("Demo Day badge", () => {
     expect(earnsDemoDayBadge(3)).toBe(true);
   });
 });
+
+describe("community points in the bonus line", () => {
+  const c = (id: string, points: number, at: string, by = "jo"): BonusRow => ({
+    id,
+    member_id: "ana",
+    event_id: null,
+    type: "community",
+    points,
+    reason: "Instagram feature",
+    awarded_at: at,
+    revoked_at: null,
+    awarded_by: by,
+  });
+  it("counts at most 20 a month, oldest first, and names who awarded it", () => {
+    const { total, lines } = bonusComponent(
+      [
+        c("a", 10, "2026-10-02T15:00:00Z"),
+        c("b", 10, "2026-10-09T15:00:00Z"),
+        c("c", 5, "2026-10-16T15:00:00Z"), // past the cap: dropped
+      ],
+      new Map(),
+      new Map([["jo", "Jolie Goldstein"]]),
+    );
+    expect(total).toBe(20);
+    expect(lines.map((l) => [l.label, l.points, l.by])).toEqual([
+      ["Instagram feature", 10, "Jolie Goldstein"],
+      ["Instagram feature", 10, "Jolie Goldstein"],
+    ]);
+  });
+  it("doesn't cap demo or other bonuses", () => {
+    const { total } = bonusComponent(
+      [
+        c("a", 10, "2026-10-02T15:00:00Z"),
+        { ...c("d", 30, "2026-10-08T15:00:00Z"), type: "demo", event_id: "e1" },
+        { ...c("o", 50, "2026-10-09T15:00:00Z"), type: "other" },
+      ],
+      new Map([["e1", "Weekly Meeting"]]),
+    );
+    expect(total).toBe(90);
+  });
+});

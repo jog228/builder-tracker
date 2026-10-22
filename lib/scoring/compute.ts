@@ -50,6 +50,8 @@ export type ScoringInput = {
   github: GithubRow[];
   bonuses: BonusRow[];
   eventNames: ReadonlyMap<string, string>;
+  /** member id → display name, for "by Jolie" on bonus lines. */
+  memberNames?: ReadonlyMap<string, string>;
   aliases: AliasMap;
 };
 
@@ -124,8 +126,9 @@ const capped = (count: number, w: { points: number; cap: number | null }) => {
 function monthBreakdown(
   t: Tally,
   eventNames: ReadonlyMap<string, string>,
+  memberNames?: ReadonlyMap<string, string>,
 ): Breakdown {
-  const bonus = bonusComponent(t.bonus, eventNames);
+  const bonus = bonusComponent(t.bonus, eventNames, memberNames);
   return {
     progress: {
       count: t.progress,
@@ -292,7 +295,7 @@ export function computeScores(input: ScoringInput, now: Date): Snapshot[] {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, t]) => ({
         month,
-        breakdown: monthBreakdown(t, input.eventNames),
+        breakdown: monthBreakdown(t, input.eventNames, input.memberNames),
       }));
     periods[currentMonth].set(
       m.id,

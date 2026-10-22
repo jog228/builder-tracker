@@ -17,6 +17,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/scoring/recompute", () => ({ scheduleRecompute: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getViewer: async () => state.viewer }));
 // A tiny fake of the bits of supabase-js the action uses; records each write.
 vi.mock("@/lib/supabase/server", () => ({
@@ -46,7 +47,8 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-const { saveNowBuilding } = await import("./actions");
+const { awardCommunityPoints, saveNowBuilding, undoCommunityPoints } =
+  await import("./actions");
 
 const OWNER = "22222222-2222-4222-8222-222222222222";
 const OTHER = "33333333-3333-4333-8333-333333333333";
@@ -145,6 +147,43 @@ describe("saveNowBuilding", () => {
     ).resolves.toMatchObject({
       status: 400,
     });
+    expect(state.calls).toEqual([]);
+  });
+});
+
+describe("community points (admins only)", () => {
+  const BONUS_ID = "44444444-4444-4444-8444-444444444444";
+  it.each([
+    ["a regular member", member(OTHER)],
+    ["the profile's owner", member(OWNER)],
+    ["a signed-out visitor", null],
+  ])(
+    "award returns 403 for %s, without touching the database",
+    async (_w, v) => {
+      state.viewer = v;
+      await expect(
+        awardCommunityPoints(OWNER, 5, "Instagram feature"),
+      ).resolves.toMatchObject({ ok: false, status: 403 });
+      expect(state.calls).toEqual([]);
+    },
+  );
+
+  it("an admin can't award themselves", async () => {
+    state.viewer = member(OWNER, { isAdmin: true });
+    await expect(
+      awardCommunityPoints(OWNER, 5, "Instagram feature"),
+    ).resolves.toMatchObject({ ok: false, status: 403 });
+    expect(state.calls).toEqual([]);
+  });
+
+  it("undo returns 403 for non-admins, without touching the database", async () => {
+    for (const v of [member(OTHER), member(OWNER), null]) {
+      state.viewer = v;
+      await expect(undoCommunityPoints(BONUS_ID)).resolves.toMatchObject({
+        ok: false,
+        status: 403,
+      });
+    }
     expect(state.calls).toEqual([]);
   });
 });

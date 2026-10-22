@@ -33,6 +33,20 @@ export const WEIGHTS = {
 export const BONUS = {
   /** Default points for demoing at an event. Admins can override per award. */
   demoPoints: 30,
+  /**
+   * Community help: small tasks (an Instagram feature, helping at an event),
+   * awarded by admins from a profile. Only these amounts, capped per member
+   * per month (club time). The database enforces the same limits.
+   */
+  community: {
+    amounts: [5, 10] as const,
+    monthlyCap: 20,
+    reasons: [
+      "Instagram feature",
+      "Helped at event",
+      "Helped another builder",
+    ] as const,
+  },
 } as const;
 
 export const BADGES = {

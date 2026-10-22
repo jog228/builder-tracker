@@ -6,6 +6,7 @@ import {
   Flame,
   Gift,
   GitMerge,
+  HandHeart,
   Handshake,
   Heart,
   MonitorPlay,
@@ -106,6 +107,13 @@ const RULES: Rule[] = [
     points: `+${BONUS.demoPoints}`,
     cap: null,
     how: "Show what you built at a meeting. It also counts as attending.",
+  },
+  {
+    icon: HandHeart,
+    what: "Community help",
+    points: BONUS.community.amounts.map((n) => `+${n}`).join(" or "),
+    cap: BONUS.community.monthlyCap,
+    how: `Community help: ${BONUS.community.amounts.map((n) => `+${n}`).join(" or ")} for small tasks like Instagram features, capped at ${BONUS.community.monthlyCap}/month. An exec awards it from your profile, with the reason shown there.`,
   },
   {
     icon: Gift,

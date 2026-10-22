@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  HandHeart,
   Check,
   Calculator,
   CalendarDays,
@@ -24,6 +25,7 @@ import { badgeIcon, Icon } from "@/components/bs/icon";
 import { Eyebrow } from "@/components/bs/site";
 import { ScoreBreakdown } from "@/components/profile/breakdown";
 import { FlagShippedButton } from "@/components/profile/flag-button";
+import { AwardPoints, UndoAward } from "@/components/profile/award-points";
 import { NowBuilding } from "@/components/profile/now-building";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
 import { attendanceRate, meetingsHeld } from "@/lib/attendance/meetings";
@@ -34,7 +36,7 @@ import {
 import { requireViewer } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
-import { BADGES } from "@/lib/scoring/config";
+import { BADGES, BONUS } from "@/lib/scoring/config";
 import { localDate, monthKey } from "@/lib/scoring/time";
 import {
   canEditNowBuilding,
@@ -195,6 +197,18 @@ export default async function BuilderPage({
             </Card>
           )}
 
+          {/* Admins only, never on your own profile or an exec's. */}
+          {viewer.isAdmin && viewer.memberId !== member.id && !excluded && (
+            <AwardPoints
+              memberId={member.id}
+              firstName={member.display_name.split(" ")[0]}
+              used={p.communityThisMonth}
+              cap={BONUS.community.monthlyCap}
+              amounts={BONUS.community.amounts}
+              reasons={BONUS.community.reasons}
+            />
+          )}
+
           <Card>
             <SectionTitle
               hint={`${p.badges.filter((b) => b.earned).length} of ${p.badges.length}`}
@@ -351,7 +365,13 @@ export default async function BuilderPage({
                   >
                     <span>
                       <Icon
-                        icon={b.type === "demo" ? MonitorPlay : Gift}
+                        icon={
+                          b.type === "demo"
+                            ? MonitorPlay
+                            : b.type === "community"
+                              ? HandHeart
+                              : Gift
+                        }
                         className="mr-1.5"
                       />
                       {b.type === "demo"
@@ -360,10 +380,18 @@ export default async function BuilderPage({
                       <span className="text-slate text-sm">
                         {" · "}
                         {dayLabel(b.date)}
+                        {b.type !== "demo" && b.awardedBy && (
+                          <> · by {b.awardedBy.split(" ")[0]}</>
+                        )}
                       </span>
                     </span>
-                    <span className="font-display bg-safety px-1.5 text-lg">
-                      +{b.points}
+                    <span className="flex shrink-0 items-center gap-2">
+                      {viewer.isAdmin && b.type === "community" && (
+                        <UndoAward bonusId={b.id} />
+                      )}
+                      <span className="font-display bg-safety px-1.5 text-lg">
+                        +{b.points}
+                      </span>
                     </span>
                   </li>
                 ))}

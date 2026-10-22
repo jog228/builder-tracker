@@ -4,6 +4,7 @@ import {
   Flame,
   Gift,
   GitMerge,
+  HandHeart,
   Handshake,
   Heart,
   MonitorPlay,
@@ -133,14 +134,24 @@ export function ScoreBreakdown({
                 {breakdown.bonus.lines.map((l, i) => (
                   <li key={i}>
                     <Icon
-                      icon={l.type === "demo" ? MonitorPlay : Gift}
+                      icon={
+                        l.type === "demo"
+                          ? MonitorPlay
+                          : l.type === "community"
+                            ? HandHeart
+                            : Gift
+                      }
                       className="mr-1"
                     />
-                    {l.label}
-                    {/* Snapshots from before bonus lines carried a date fall back to awardedAt. */}
-                    {" · "}
-                    {dayLabel(l.date ?? l.awardedAt)}{" "}
+                    {/* "Instagram feature +5 · Oct 22 · by Jolie". Snapshots from
+                        before lines carried a date fall back to awardedAt. */}
+                    {l.label}{" "}
                     <span className="text-ink font-bold">+{l.points}</span>
+                    {" · "}
+                    {dayLabel(l.date ?? l.awardedAt)}
+                    {l.type !== "demo" && l.by && (
+                      <> · by {l.by.split(" ")[0]}</>
+                    )}
                   </li>
                 ))}
               </ul>
