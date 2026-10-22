@@ -20,7 +20,10 @@
     "set-exec": "tsx --conditions=react-server --env-file=.env.local scripts/set-exec.ts",
     "score-messages": "tsx --conditions=react-server --env-file=.env.local scripts/score-messages.ts",
     "eval:classifier": "tsx --conditions=react-server --env-file=.env.local scripts/eval-classifier.ts",
-    "flag-shipped": "tsx --conditions=react-server --env-file=.env.local scripts/flag-shipped.ts"
+    "flag-shipped": "tsx --conditions=react-server --env-file=.env.local scripts/flag-shipped.ts",
+    "compute-scores": "tsx --conditions=react-server --env-file=.env.local scripts/compute-scores.ts",
+    "set-email": "tsx --conditions=react-server --env-file=.env.local scripts/set-email.ts",
+    "login-link": "tsx --conditions=react-server --env-file=.env.local scripts/login-link.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
@@ -30,9 +33,11 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
     "lucide-react": "^1.61.0",
+    "motion": "^14.5.0",
     "next": "15.5.28",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "recharts": "^3.10.1",
     "server-only": "^0.0.1",
     "shadcn": "^4.22.1",
     "tw-animate-css": "^1.4.0",

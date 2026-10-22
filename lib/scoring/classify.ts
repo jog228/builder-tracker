@@ -53,6 +53,24 @@ export type MessageScore = {
 
 const DELETED_TEXT = "This message was deleted";
 
+/** The "👋 Introductions" subtopic (matched by name, emoji and case aside). */
+export const isIntroductionsChannel = (channel: string) =>
+  /introductions/i.test(channel);
+
+/**
+ * Hard rules applied after the model answers. Introductions are never
+ * shipped candidates (organizer rule), whatever the model says.
+ */
+export function applyChannelRules(
+  category: Category,
+  channel: string,
+): Category {
+  if (category === "shipped_candidate" && isIntroductionsChannel(channel)) {
+    return "chatter";
+  }
+  return category;
+}
+
 export type SkipReason =
   "not_user" | "no_member" | "excluded_or_inactive" | "too_short" | "deleted";
 
@@ -237,7 +255,7 @@ export function parseClassifyResponse(
     }
     scores.push({
       message_id: m.id,
-      category: r.category,
+      category: applyChannelRules(r.category, m.channel),
       substance: r.substance,
       summary: r.summary.trim(),
       project: r.project.trim() || null,

@@ -2,6 +2,7 @@
 // Used by the cron route, the score-messages script, and the eval script.
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAll, one } from "../supabase/fetch-all";
 import {
   CLASSIFIER,
   addUsage,
@@ -56,23 +57,6 @@ export function realtimeExecutor(
 }
 
 // ─── Loading ────────────────────────────────────────────────────────────────
-
-const PAGE = 1000;
-
-async function fetchAll<T>(
-  query: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{ data: T[] | null; error: unknown }>,
-): Promise<T[]> {
-  const rows: T[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await query(from, from + PAGE - 1);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if (!data || data.length < PAGE) return rows;
-  }
-}
 
 type MessageRow = {
   id: string;
@@ -161,7 +145,7 @@ export async function loadKnownProjects(
   ]);
   const known = new KnownProjects(buildAliasMap(aliases));
   for (const s of scored) {
-    const msg = Array.isArray(s.messages) ? s.messages[0] : s.messages;
+    const msg = one(s.messages);
     if (msg?.member_id) known.add(msg.member_id, s.project, msg.created_at);
   }
   return known;

@@ -160,8 +160,18 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 - `scripts/import-attendance.ts`: imports your historical CSV, fuzzy-matching names to members, and prints any it couldn't match. Rows for excluded members are skipped and reported.
 - **Done when:** an organizer can take attendance for 30 people in under a minute on a phone.
 
-### Phase 4: Scores, the leaderboard UI, and auth
+### Phase 4: Scores, the leaderboard UI, and auth ✅ (built before Phase 3; works without attendance data)
 - Supabase magic-link login, limited to emails in `members` (or `@lehigh.edu`)
+  - **As built:** an allowlist, so only emails set on an active member row can log in (`npm run set-email -- <GroupMe id | name> <email | --clear>`; UI in Phase 5's `/admin/members`). GroupMe doesn't expose emails, so organizers set them.
+  - On first login, `members.auth_user_id` is linked (`lib/auth.ts`). Middleware refreshes the session and sends logged-out visitors to `/login` (only `/login`, `/auth/*` and the CRON_SECRET-protected `/api/cron/*` are public). Admin pages call `requireAdmin()`.
+  - Emailed links land on `/auth/callback` (PKCE). For testing, `npm run login-link -- <email>` prints a one-time link (`/auth/confirm`, token hash) without sending email.
+  - For emailed links to work, the Supabase project's Auth → URL Configuration must allow `http://localhost:3000/auth/callback` (and the production URL in Phase 8).
+- Scoring: `lib/scoring/compute.ts` (pure, unit-tested) with weights in `lib/scoring/config.ts`; `lib/scoring/compute-scores.ts` loads data and writes snapshots.
+  - Monthly caps apply per month, and all-time is the sum of capped months.
+  - Months and weeks are in America/New_York.
+  - A streak week is a week with a progress/shipped post of substance ≥ 1. The +5 bonus applies to each week whose previous week also had one.
+  - Rank change (▲▼) compares with the last computation on an earlier day (`score_snapshots.prev_rank`).
+  - Scores recompute right after any shipped decision. Otherwise they recompute via `npm run compute-scores` or the cron route.
 - `lib/scoring/compute.ts` → `score_snapshots` for the current month and all time; `POST /api/cron/compute-scores`. It only computes for `ranked_members` and ranks with `rankMembers()`.
 - Pages:
   - `/leaderboard`: top-3 podium (animated), a full ranked list with rank change ▲▼, a month / all-time toggle, and filters
@@ -170,10 +180,13 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
   - `/admin/shipped` (admin area): the shipped review queue (`shipped_review_queue`, highest priority first, then oldest). Each card shows the message, attachments, member, project and Claude's summary, with **"Yes, shipped"** and **"No, just progress"** buttons that record `decided_by` / `decided_at`. Also a "Flag for review" action on any message, and a history of decisions that an admin can change.
   - Exec board members don't appear on the leaderboard and have no score breakdown, streak or badges on their profiles
 - **Done when:** a logged-in member sees real rankings, and a logged-out visitor sees nothing.
+- Badges: the full starter catalog is seeded, so profiles show earned vs locked badges. The rules that award them come in Phase 6.
 
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)
 - Project aliases (on `/admin/members/[id]`): list each member's project names with message counts, and merge variants into one canonical name (writes `project_aliases`). Shipped counting and the classifier's known-projects context pick up aliases automatically.
+  - **Split project** (for over-merges, e.g. Reid's LinkedIn-style vetted network filed under his earlier "tiktok internship platform"): pick a member's project, tick the messages that belong to a different project, and give that project a name. This rewrites `message_scores.project` on the ticked messages and removes any alias that would merge the two names back together. Later classifier runs see both names in `author_projects`, so the split sticks. Shipped approvals are unaffected; the once-per-project rule just treats them as separate projects from then on.
+- Also in Phase 2: messages in the Introductions channel can never be shipped candidates. `applyChannelRules()` in `lib/scoring/classify.ts` enforces this after the model answers.
 - Don't count GitHub activity for excluded members
 - `lib/github.ts`: a GraphQL `contributionsCollection(from, to)` query per user for daily commit counts and PRs
 - `POST /api/cron/sync-github` (nightly)
@@ -214,7 +227,7 @@ Keep all weights in one config file (`lib/scoring/config.ts`) so organizers can 
 The public Builder Society site will live in the same Next.js app. Public pages read from a `public_stats` view (aggregates, plus featured builders who said yes) and never from raw tables.
 
 ## 9. Open decisions (answer when you get there)
-- Login: members' school emails, or a fixed allowlist?
-- Can members see the full ranking, or only the top 10 plus their own rank?
+- Login: members' school emails, or a fixed allowlist? **Built as an allowlist (`members.email`)**. Opening it to any `@lehigh.edu` address would also need a way to match a new login to the right GroupMe member.
+- Can members see the full ranking, or only the top 10 plus their own rank? **Currently the full ranking** (easy to change in `RankedList`).
 - Event weights (e.g., hackathon = 2×)?
 - ~~Should anyone be excluded from rankings (e.g., e-board)?~~ Decided: yes, the exec board (§4a).

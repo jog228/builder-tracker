@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 import {
   CLASSIFIER,
+  applyChannelRules,
   buildClassifyRequest,
   costUsd,
   parseClassifyResponse,
@@ -207,5 +208,40 @@ describe("costUsd", () => {
         cacheRead: 0,
       }),
     ).toBeCloseTo(0.6);
+  });
+});
+
+describe("applyChannelRules", () => {
+  it("never lets an Introductions message be a shipped candidate", () => {
+    expect(applyChannelRules("shipped_candidate", "👋 Introductions")).toBe(
+      "chatter",
+    );
+    expect(applyChannelRules("shipped_candidate", "🔥 Goals & Progress")).toBe(
+      "shipped_candidate",
+    );
+    expect(applyChannelRules("help_given", "👋 Introductions")).toBe(
+      "help_given",
+    );
+  });
+
+  it("is applied when parsing a response", () => {
+    const intro = [{ ...batch[0], channel: "👋 Introductions" }];
+    const parsed = parseClassifyResponse(
+      intro,
+      response(
+        JSON.stringify({
+          results: [
+            {
+              ref: "m1",
+              category: "shipped_candidate",
+              substance: 2,
+              summary: "Intro.",
+              project: "Kiwi",
+            },
+          ],
+        }),
+      ),
+    );
+    expect(parsed.scores[0].category).toBe("chatter");
   });
 });

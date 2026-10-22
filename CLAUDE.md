@@ -20,6 +20,9 @@ at a time, and stop for review after each phase.
 - `npm test`: Vitest unit tests (`*.test.ts` next to the code)
 - `npm run groupme:list-groups` / `groupme:backfill` / `groupme:sync` / `groupme:purge-raw`
 - `npm run score-messages` / `npm run eval:classifier`: AI message scoring and its eval (both call the Anthropic API and cost money)
+- `npm run compute-scores`: recompute leaderboard snapshots
+- `npm run set-email -- <GroupMe id | name> <email | --clear>`: allow a member to log in
+- `npm run login-link -- <email>`: DEV ONLY, prints a one-time login link (no email sent)
 - `npm run flag-shipped -- <message id> [--priority N]`: queue a message for shipped review
 - `npm run set-exec -- [--dry-run] "<GroupMe name or id>" ...`: mark exec board members (admin + excluded from rankings)
 
@@ -43,6 +46,8 @@ Scripts run via `tsx --conditions=react-server --env-file=.env.local` so they ca
 - Message scoring: `lib/scoring/classify.ts` is pure (prompt, request, parsing, cost); `lib/scoring/score-messages.ts` loads, runs and saves results through a swappable `ClassifyExecutor` (realtime now, Batch API later). Never send member names to the model.
 - Bonus points (`bonus_points`): manual, uncapped, demo default in `lib/scoring/config.ts`. A demo counts once per member per event and also marks attendance (DB trigger). Undo = revoke (`revoked_at`), never delete. Counting rules live in `lib/scoring/bonus.ts`.
 - Shipped is never awarded by the model: it outputs `shipped_candidate`, queued in `shipped_approvals`; only an exec "yes" makes it shipped (`effectiveCategory()`). Project names go through `project_aliases` (`lib/scoring/projects.ts`). Classifier batches run chronologically so `author_projects` carries forward.
+- Auth: allowlist by `members.email`. `getViewer()` / `requireViewer()` / `requireAdmin()` in `lib/auth.ts`. Pages under `app/(app)/` are members-only via the layout + middleware. Read data with the user's session (RLS); use the secret-key client only in cron, scripts, and score recomputation.
+- UI: dark theme only (`<html class="dark">`, palette in `app/globals.css`). Shared bits in `components/bs/`; animation with `motion/react` (respect `useReducedMotion`); charts with Recharts.
 - `messages.liked_by` stores GroupMe user ids (likers may not be members); `messages.sender_groupme_id` allows re-mapping senders to members.
 
 ## Guardrails
