@@ -1,9 +1,17 @@
 // Scoring weights, in one place so organizers can tune them (PLAN.md §5).
 
+/**
+ * Claude rates each post's substance 0–3. Any real update (≥ 1) earns
+ * progress points; a detailed one (≥ 2: what you built, results, what's next)
+ * is needed for that week to count toward a streak. 0 and chatter earn nothing.
+ */
+export const UPDATE_MIN_SUBSTANCE = 1;
+export const STREAK_MIN_SUBSTANCE = 2;
+
 /** Points per item and monthly cap (null = uncapped). */
 export const WEIGHTS = {
   /** progress_update (or an unapproved shipped candidate) with substance ≥ minSubstance. */
-  progressUpdate: { points: 10, cap: 80, minSubstance: 2 },
+  progressUpdate: { points: 10, cap: 80, minSubstance: UPDATE_MIN_SUBSTANCE },
   /** Exec-approved shipped post, once per member per project. */
   shipped: { points: 25, cap: 75 },
   helpGiven: { points: 5, cap: 25 },
@@ -14,10 +22,12 @@ export const WEIGHTS = {
   githubActiveDay: { points: 3, cap: 60 },
   githubMergedPr: { points: 5, cap: 40 },
   /**
-   * Each week with an update whose previous week also had one. An "update" is
-   * a progress or shipped post with substance ≥ minSubstance.
+   * Each week with a streak update whose previous week also had one. A
+   * "streak update" is a progress or shipped post with substance ≥
+   * minSubstance; the same rule drives the streak shown on profiles and the
+   * leaderboard and (Phase 6) the streak badge. See countsForStreak().
    */
-  streakWeek: { points: 5, cap: 30, minSubstance: 1 },
+  streakWeek: { points: 5, cap: 30, minSubstance: STREAK_MIN_SUBSTANCE },
 } as const;
 
 export const BONUS = {

@@ -9,6 +9,7 @@ import {
   loadClassifiable,
   loadKnownProjects,
 } from "../lib/scoring/score-messages";
+import { UPDATE_MIN_SUBSTANCE } from "../lib/scoring/config";
 import { createAdminClient } from "../lib/supabase/admin";
 
 type Label = {
@@ -21,10 +22,11 @@ type Label = {
 const pct = (n: number, d: number) =>
   d ? `${((n / d) * 100).toFixed(0)}% (${n}/${d})` : "n/a";
 
-// Mirrors scoring v1 before any exec review: a shipped candidate counts as
-// progress until approved, so it earns points at substance ≥ 2.
+// Mirrors scoring before any exec review: a shipped candidate counts as
+// progress until approved, so it earns points at UPDATE_MIN_SUBSTANCE.
 const earnsPoints = (c: Category, s: number) =>
-  ((c === "progress_update" || c === "shipped_candidate") && s >= 2) ||
+  ((c === "progress_update" || c === "shipped_candidate") &&
+    s >= UPDATE_MIN_SUBSTANCE) ||
   c === "help_given";
 
 async function main() {

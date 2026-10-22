@@ -23,6 +23,8 @@ import {
   BONUS,
   BUILDER_OF_THE_MONTH,
   GITHUB,
+  STREAK_MIN_SUBSTANCE,
+  UPDATE_MIN_SUBSTANCE,
   WEEKLY_MEETING,
   WEIGHTS,
 } from "@/lib/scoring/config";
@@ -60,7 +62,7 @@ const RULES: Rule[] = [
     what: "Progress update",
     points: `${WEIGHTS.progressUpdate.points} each`,
     cap: WEIGHTS.progressUpdate.cap,
-    how: `A GroupMe post about what you built. Claude rates each post 0–3 for substance; it counts at ${WEIGHTS.progressUpdate.minSubstance}+ (“${SUBSTANCE[WEIGHTS.progressUpdate.minSubstance]}”).`,
+    how: `A GroupMe post about what you're building. Claude rates each post 0–3 for substance; any real update (${UPDATE_MIN_SUBSTANCE}+, “${SUBSTANCE[UPDATE_MIN_SUBSTANCE]}”) earns points. Chatter (0) doesn't.`,
   },
   {
     icon: Rocket,
@@ -88,7 +90,7 @@ const RULES: Rule[] = [
     what: "Streak",
     points: `+${WEIGHTS.streakWeek.points} per week`,
     cap: WEIGHTS.streakWeek.cap,
-    how: `Post an update (substance ${WEIGHTS.streakWeek.minSubstance}+) in back-to-back weeks. Every week that continues a streak adds a bonus.`,
+    how: `Post a detailed update (substance ${STREAK_MIN_SUBSTANCE}+, “${SUBSTANCE[STREAK_MIN_SUBSTANCE]}”: what you built, results, what's next) in back-to-back weeks. Each week that continues a streak adds a bonus. Your profile marks every update “Streak week” or “Too light for streak”.`,
   },
   {
     icon: CalendarCheck,
@@ -146,6 +148,10 @@ export default async function HowItWorksPage() {
           You earn points for building in public: posting progress, shipping,
           helping, and showing up. Scores reset on the 1st of each month
           (Eastern time; weeks start Monday). All-time totals keep everything.
+        </p>
+        <p className="border-ink bg-paper mt-4 max-w-2xl border-l-[6px] px-4 py-3 text-xl leading-snug font-semibold">
+          Any real update earns points. Detailed updates (what you built,
+          results, what&apos;s next) keep your streak alive.
         </p>
       </div>
 

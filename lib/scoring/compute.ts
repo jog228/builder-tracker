@@ -18,6 +18,7 @@ import {
   type ApprovalStatus,
 } from "./shipped";
 import { monthKey, prevWeek, weekKey } from "./time";
+import { countsForStreak, earnsProgressPoints, isUpdate } from "./updates";
 
 export type ScoringMember = EligibilityFields & {
   id: string;
@@ -236,18 +237,12 @@ export function computeScores(input: ScoringInput, now: Date): Snapshot[] {
 
   for (const m of messages) {
     const t = tally(m.member_id, monthKey(m.created_at));
-    const isUpdate =
-      m.category === "progress_update" || m.category === "shipped";
-    if (
-      m.category === "progress_update" &&
-      m.substance >= WEIGHTS.progressUpdate.minSubstance
-    )
-      t.progress++;
+    if (earnsProgressPoints(m)) t.progress++;
     if (m.category === "help_given") t.help++;
-    if (isUpdate) {
+    if (isUpdate(m)) {
       const self = memberById.get(m.member_id)?.groupmeUserId;
       t.likes += m.liked_by.filter((id) => id !== self).length;
-      if (m.substance >= WEIGHTS.streakWeek.minSubstance) {
+      if (countsForStreak(m)) {
         const weeks = updateWeeks.get(m.member_id) ?? new Set<string>();
         weeks.add(weekKey(m.created_at));
         updateWeeks.set(m.member_id, weeks);

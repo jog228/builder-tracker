@@ -1,5 +1,6 @@
 import "server-only";
 import { bonusDate } from "@/lib/scoring/bonus";
+import { countsForStreak, isUpdate, updatePoints } from "@/lib/scoring/updates";
 import { getWeeklyMeetings } from "@/lib/data/meetings";
 import type { Breakdown, Streak } from "@/lib/scoring/compute";
 import type { ApprovalStatus } from "@/lib/scoring/shipped";
@@ -27,6 +28,10 @@ export type RecentUpdate = {
   rawCategory: string;
   approval: ApprovalStatus | null;
   substance: number;
+  /** Nominal points (updatePoints()): before caps / once-per-project. */
+  points: number;
+  /** Whether it keeps its week's streak alive; null for non-update posts. */
+  streak: boolean | null;
   summary: string | null;
   project: string | null;
 };
@@ -170,6 +175,10 @@ export async function getProfile(memberId: string) {
         }[],
       )!;
       const approval = approvalBy.get(u.id) ?? null;
+      const post = {
+        category: effectiveCategory(s.category, approval),
+        substance: s.substance,
+      };
       return {
         id: u.id,
         createdAt: u.created_at,
@@ -180,6 +189,8 @@ export async function getProfile(memberId: string) {
         category: effectiveCategory(s.category, approval),
         approval,
         substance: s.substance,
+        points: updatePoints(post),
+        streak: isUpdate(post) ? countsForStreak(post) : null,
         summary: s.summary,
         project: s.project,
       };

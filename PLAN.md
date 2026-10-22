@@ -95,14 +95,14 @@ Monthly score = sum of these components, each capped so no single source dominat
 
 | Component | Points | Cap / month |
 |---|---|---|
-| Progress update (substance ≥ 2) | 10 each | 80 |
+| Progress update (substance ≥ 1, `UPDATE_MIN_SUBSTANCE`; 0 and chatter score nothing) | 10 each | 80 |
 | "Shipped" post: the classifier flags `shipped_candidate`, which counts **only after an exec member approves it**; once per member per project (`countableShipped()`, alias-aware) | 25 each | 75 |
 | Helping others (`help_given`), including sharing a useful article, link or tool in any channel | 5 each | 25 |
 | Likes received on update/shipped posts | 1 each | 30 |
 | Event attended | 15 × event weight | none |
 | GitHub: active coding days | 3 per day | 60 |
 | GitHub: merged PRs | 5 each | 40 |
-| Streak bonus (consecutive weeks with an update) | +5 per week | 30 |
+| Streak bonus (consecutive weeks with a detailed update, substance ≥ 2, `STREAK_MIN_SUBSTANCE`; same rule for the profile/leaderboard streak and the streak badge) | +5 per week | 30 |
 | Bonus points (manual: demos and "other") | demo default 30 (`BONUS.demoPoints`), admins can override; any amount for "other" | **none** |
 
 Only rankable members are scored: `active` and not `exclude_from_rankings` (see §4a). Likes count by who *received* them, so an exec's like on someone's update still counts for that person.

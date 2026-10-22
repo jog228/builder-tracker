@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  Check,
   Calculator,
   CalendarDays,
   Gift,
@@ -228,6 +229,33 @@ export default async function BuilderPage({
                     <p className="mt-1.5 text-lg leading-snug">
                       {u.summary ?? u.text}
                     </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-bold">
+                      <span
+                        className={cn(
+                          "border-2 px-1.5",
+                          u.points
+                            ? "border-ink bg-safety text-[#111]"
+                            : "border-dash text-slate",
+                        )}
+                        title={
+                          u.category === "shipped"
+                            ? "Shipped points count once per project"
+                            : "Before the monthly cap"
+                        }
+                      >
+                        {u.points ? `+${u.points}` : "No points"}
+                      </span>
+                      {u.streak === true && (
+                        <span className="text-ok inline-flex items-center gap-1">
+                          <Icon icon={Check} /> Streak week
+                        </span>
+                      )}
+                      {u.streak === false && (
+                        <span className="text-slate font-semibold">
+                          Too light for streak: add results/next steps
+                        </span>
+                      )}
+                    </div>
                     <details className="text-slate mt-1 text-sm">
                       <summary className="hover:text-rust cursor-pointer font-semibold select-none">
                         Original post

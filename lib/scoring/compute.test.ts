@@ -82,16 +82,26 @@ describe("computeScores", () => {
     expect(s.some((x) => x.member_id === "exec")).toBe(false);
   });
 
-  it("only counts progress updates with substance ≥ 2, capped at 80 a month", () => {
+  it("counts any real progress update (substance ≥ 1), capped at 80 a month", () => {
     const messages = [
-      msg({ substance: 1 }),
-      ...Array.from({ length: 12 }, (_, i) =>
+      msg({ substance: 0 }), // nothing
+      msg({ category: "chatter", substance: 3 }), // nothing
+      msg({ substance: 1 }), // counts now
+      ...Array.from({ length: 11 }, (_, i) =>
         msg({ created_at: `2026-10-0${(i % 9) + 1}T15:00:00Z` }),
       ),
     ];
     const b = snap(computeScores(input({ messages }), NOW), "ana").components;
     expect(b.progress.count).toBe(12);
     expect(b.progress.points).toBe(80);
+  });
+
+  it("gives a single light update (substance 1) its 10 points", () => {
+    const b = snap(
+      computeScores(input({ messages: [msg({ substance: 1 })] }), NOW),
+      "ana",
+    ).components;
+    expect(b.progress).toMatchObject({ count: 1, points: 10 });
   });
 
   it("treats a shipped candidate as progress until an exec approves it", () => {
@@ -301,5 +311,30 @@ describe("streaks", () => {
     const weeks = new Set(["2026-10-05", "2026-10-12"]);
     expect(streakOf(weeks, new Date("2026-10-21T12:00:00Z")).current).toBe(2); // Oct 19 week, no post yet
     expect(streakOf(weeks, new Date("2026-10-28T12:00:00Z")).current).toBe(0); // missed Oct 19 week
+  });
+
+  it("needs a detailed update (substance ≥ 2) for a week to count", () => {
+    const messages = [
+      msg({ created_at: "2026-10-05T15:00:00Z" }), // detailed
+      msg({ created_at: "2026-10-13T15:00:00Z", substance: 1 }), // too light
+      msg({ created_at: "2026-10-19T15:00:00Z" }), // detailed
+    ];
+    const b = snap(computeScores(input({ messages }), NOW), "ana").components;
+    // All three still earn progress points...
+    expect(b.progress.count).toBe(3);
+    // ...but the light week breaks the run: no week continues a streak, and
+    // the header streak (streak_weeks) uses the same rule.
+    expect(b.streak).toMatchObject({ count: 0, points: 0 });
+    expect(b.streak_weeks).toEqual({ current: 1, longest: 1 });
+  });
+
+  it("one detailed update is enough to keep a week, among light ones", () => {
+    const messages = [
+      msg({ created_at: "2026-10-05T15:00:00Z" }),
+      msg({ created_at: "2026-10-12T15:00:00Z", substance: 1 }),
+      msg({ created_at: "2026-10-14T15:00:00Z", substance: 3 }),
+    ];
+    const b = snap(computeScores(input({ messages }), NOW), "ana").components;
+    expect(b.streak).toMatchObject({ count: 1, points: 5 });
   });
 });
