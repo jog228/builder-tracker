@@ -27,6 +27,7 @@ import { ScoreBreakdown } from "@/components/profile/breakdown";
 import { FlagShippedButton } from "@/components/profile/flag-button";
 import { AwardPoints, UndoAward } from "@/components/profile/award-points";
 import { NowBuilding } from "@/components/profile/now-building";
+import { ProjectPicker } from "@/components/profile/project-picker";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
 import { attendanceRate, meetingsHeld } from "@/lib/attendance/meetings";
 import {
@@ -334,6 +335,12 @@ export default async function BuilderPage({
                       >
                         {u.points ? `+${u.points}` : "No points"}
                       </span>
+                      {u.creditedTo && (
+                        <span className="text-slate font-semibold">
+                          {u.project ?? "This project"}&rsquo;s ship already
+                          counted on the {shortDate(u.creditedTo)} post
+                        </span>
+                      )}
                       {u.streak === true && (
                         <span className="text-ok inline-flex items-center gap-1">
                           <Icon icon={Check} /> Streak week
@@ -343,6 +350,14 @@ export default async function BuilderPage({
                         <span className="text-slate font-semibold">
                           Too light for streak: add results/next steps
                         </span>
+                      )}
+                      {/* Admins only; members and guests never see it. */}
+                      {viewer?.isAdmin && !excluded && (
+                        <ProjectPicker
+                          messageId={u.id}
+                          current={u.project}
+                          projects={p.projects}
+                        />
                       )}
                     </div>
                     <details className="text-slate mt-1 text-sm">

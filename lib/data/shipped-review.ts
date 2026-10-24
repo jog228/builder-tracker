@@ -24,8 +24,14 @@ export type QueueItem = {
 };
 
 export type Decision = {
+  /** Unique per row: a message has one approval but may be moved many times. */
+  key: string;
   messageId: string;
-  status: "shipped" | "progress";
+  kind: "approval" | "project";
+  /** Approvals only. */
+  status: "shipped" | "progress" | null;
+  /** Project moves only: the previous project (null if none was named). */
+  fromProject: string | null;
   decidedAt: string;
   decidedBy: string | null;
   name: string;
@@ -55,9 +61,19 @@ function mediaOf(attachments: unknown, text: string): Media[] {
   return out;
 }
 
+type Named = { display_name: string };
+type Score = { summary: string | null; project: string | null };
+type Embedded = {
+  member_id: string;
+  members: Named | Named[] | null;
+  message_scores: Score | Score[] | null;
+};
+
+const HISTORY_LIMIT = 30;
+
 export async function getShippedReview() {
   const supabase = await createClient();
-  const [queue, decided] = await Promise.all([
+  const [queue, decided, moves] = await Promise.all([
     supabase
       .from("shipped_review_queue")
       .select(
@@ -70,8 +86,16 @@ export async function getShippedReview() {
       )
       .neq("status", "pending")
       .order("decided_at", { ascending: false })
-      .limit(30),
+      .limit(HISTORY_LIMIT),
+    supabase
+      .from("project_reassignments")
+      .select(
+        "id, message_id, from_project, to_project, changed_at, changer:members!project_reassignments_changed_by_fkey(display_name), messages(member_id, members(display_name), message_scores(summary))",
+      )
+      .order("changed_at", { ascending: false })
+      .limit(HISTORY_LIMIT),
   ]);
+  if (moves.error) throw moves.error;
   if (queue.error) throw queue.error;
 
   const ids = (queue.data ?? []).map((q) => q.message_id);
@@ -98,19 +122,15 @@ export async function getShippedReview() {
     media: mediaOf(attachmentsBy.get(q.message_id), q.text ?? ""),
   }));
 
-  const history: Decision[] = (decided.data ?? []).map((d) => {
-    type Embedded = {
-      member_id: string;
-      members: Named | Named[] | null;
-      message_scores: Score | Score[] | null;
-    };
-    type Named = { display_name: string };
-    type Score = { summary: string | null; project: string | null };
+  const approvals: Decision[] = (decided.data ?? []).map((d) => {
     const msg = one(d.messages as unknown as Embedded | Embedded[]);
     const score = one(msg?.message_scores ?? null);
     return {
+      key: `approval:${d.message_id}`,
       messageId: d.message_id,
+      kind: "approval",
       status: d.status as "shipped" | "progress",
+      fromProject: null,
       decidedAt: d.decided_at!,
       decidedBy:
         one(d.decider as unknown as Named | Named[])?.display_name ?? null,
@@ -120,6 +140,29 @@ export async function getShippedReview() {
       summary: score?.summary ?? null,
     };
   });
+
+  const projectMoves: Decision[] = (moves.data ?? []).map((m) => {
+    const msg = one(m.messages as unknown as Embedded | Embedded[]);
+    return {
+      key: `project:${m.id}`,
+      messageId: m.message_id,
+      kind: "project",
+      status: null,
+      fromProject: m.from_project,
+      decidedAt: m.changed_at,
+      decidedBy:
+        one(m.changer as unknown as Named | Named[])?.display_name ?? null,
+      name: one(msg?.members ?? null)?.display_name ?? "Unknown",
+      memberId: msg?.member_id ?? "",
+      project: m.to_project,
+      summary: one(msg?.message_scores ?? null)?.summary ?? null,
+    };
+  });
+
+  // Newest first, approvals and project moves together.
+  const history = [...approvals, ...projectMoves]
+    .sort((a, b) => b.decidedAt.localeCompare(a.decidedAt))
+    .slice(0, HISTORY_LIMIT);
 
   return { items, history };
 }

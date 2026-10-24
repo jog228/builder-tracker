@@ -40,11 +40,16 @@ export default async function ShippedReviewPage() {
 
       <Card>
         <SectionTitle hint="latest 30">Decisions</SectionTitle>
+        <p className="text-slate -mt-2 mb-4 text-sm">
+          Approvals and project moves. A row is one post: approving two posts
+          for the same project shows two rows, but the project still earns
+          shipped points once.
+        </p>
         {history.length ? (
           <ul className="flex flex-col gap-3">
             {history.map((d) => (
               <li
-                key={d.messageId}
+                key={d.key}
                 className="border-dash flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-dashed pb-3"
               >
                 <span className="flex min-w-0 flex-col">
@@ -55,17 +60,35 @@ export default async function ShippedReviewPage() {
                     {d.name}
                   </Link>
                   <span className="text-slate text-[0.95rem]">
-                    {d.project && <>{d.project} · </>}
+                    {d.kind === "project" ? (
+                      <>
+                        {d.fromProject ?? "No project"} → {d.project} ·{" "}
+                      </>
+                    ) : (
+                      d.project && <>{d.project} · </>
+                    )}
                     {d.decidedBy ?? "someone"} · {timeAgo(d.decidedAt)}
                   </span>
+                  {d.kind === "project" && d.summary && (
+                    <span className="text-slate text-sm italic">
+                      {d.summary}
+                    </span>
+                  )}
                 </span>
                 <span className="flex items-center gap-3">
-                  {d.status === "shipped" ? (
-                    <Stamp tone="approved">Approved</Stamp>
+                  {d.kind === "project" ? (
+                    <Stamp tone="neutral">Project moved</Stamp>
+                  ) : d.status === "shipped" ? (
+                    <>
+                      <Stamp tone="approved">Approved</Stamp>
+                      <ReopenButton messageId={d.messageId} />
+                    </>
                   ) : (
-                    <Stamp tone="neutral">Progress</Stamp>
+                    <>
+                      <Stamp tone="neutral">Progress</Stamp>
+                      <ReopenButton messageId={d.messageId} />
+                    </>
                   )}
-                  <ReopenButton messageId={d.messageId} />
                 </span>
               </li>
             ))}

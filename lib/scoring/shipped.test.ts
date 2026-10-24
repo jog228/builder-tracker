@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildAliasMap } from "./projects";
-import { countableShipped, effectiveCategory } from "./shipped";
+import {
+  countableShipped,
+  effectiveCategory,
+  shippedCreditedTo,
+} from "./shipped";
 
 describe("effectiveCategory", () => {
   it("treats a candidate as progress until an exec says yes", () => {
@@ -67,5 +71,48 @@ describe("countableShipped", () => {
         post("henry", "Muggy", "2026-10-09T00:00:00Z", "progress_update"),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("shippedCreditedTo", () => {
+  const ship = (id: string, project: string | null, created_at: string) => ({
+    id,
+    ...post("shen", project, created_at),
+  });
+
+  it("credits the first post per project and points duplicates at it", () => {
+    const demo = ship("oct6", "Studlin", "2026-10-06T00:00:00Z");
+    const link = ship("oct22", "Studlin", "2026-10-22T00:00:00Z");
+    const credit = shippedCreditedTo([link, demo]);
+    expect(credit.get("oct6")).toBeNull();
+    expect(credit.get("oct22")).toBe(demo);
+  });
+
+  it("gives each project its own ship once the post is moved", () => {
+    const credit = shippedCreditedTo([
+      ship("oct6", "Studlin", "2026-10-06T00:00:00Z"),
+      ship("oct22", "Campus Crush", "2026-10-22T00:00:00Z"),
+    ]);
+    expect(credit.get("oct6")).toBeNull();
+    expect(credit.get("oct22")).toBeNull();
+  });
+
+  it("matches countableShipped through aliases and skips non-shipped posts", () => {
+    const aliases = buildAliasMap([
+      { member_id: "shen", alias: "lum", canonical: "Campus Crush" },
+    ]);
+    const first = ship("a", "Campus Crush", "2026-10-10T00:00:00Z");
+    const rows = [
+      first,
+      ship("b", "lum", "2026-10-22T00:00:00Z"),
+      {
+        ...ship("c", "lum", "2026-10-01T00:00:00Z"),
+        category: "progress_update",
+      },
+    ];
+    const credit = shippedCreditedTo(rows, aliases);
+    expect(credit.get("b")).toBe(first);
+    expect(credit.has("c")).toBe(false);
+    expect(countableShipped(rows, aliases)).toEqual([first]);
   });
 });

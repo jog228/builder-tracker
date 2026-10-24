@@ -7,7 +7,12 @@ import { BADGES } from "@/lib/scoring/config";
 import type { SummaryRow } from "@/lib/summaries/now-building";
 import type { Breakdown, Streak } from "@/lib/scoring/compute";
 import type { ApprovalStatus } from "@/lib/scoring/shipped";
-import { effectiveCategory } from "@/lib/scoring/shipped";
+import { effectiveCategory, shippedCreditedTo } from "@/lib/scoring/shipped";
+import {
+  buildAliasMap,
+  projectKey,
+  resolveProject,
+} from "@/lib/scoring/projects";
 import { monthKey } from "@/lib/scoring/time";
 import { fetchAll, one } from "@/lib/supabase/fetch-all";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -31,12 +36,23 @@ export type RecentUpdate = {
   rawCategory: string;
   approval: ApprovalStatus | null;
   substance: number;
-  /** Nominal points (updatePoints()); shipped counts once per project. */
+  /**
+   * What the post earns right now: updatePoints(), except a shipped post
+   * whose project was already credited earns 0 (see creditedTo).
+   */
   points: number;
+  /** A duplicate ship: when the post that earned this project's points was made. */
+  creditedTo: string | null;
   /** Whether it keeps its week's streak alive; null for non-update posts. */
   streak: boolean | null;
   summary: string | null;
   project: string | null;
+};
+
+type ShippedMessage = {
+  member_id: string;
+  created_at: string;
+  message_scores: { project: string | null } | { project: string | null }[];
 };
 
 const HEATMAP_WEEKS = 18;
@@ -93,6 +109,9 @@ export async function getProfile(memberId: string, supabase: SupabaseClient) {
     meetings,
     rankingRows,
     summary,
+    projectRows,
+    shippedRows,
+    aliasRows,
   ] = await Promise.all([
     supabase
       .from("score_snapshots")
@@ -169,7 +188,60 @@ export async function getProfile(memberId: string, supabase: SupabaseClient) {
       )
       .eq("member_id", memberId)
       .maybeSingle(),
+    // Every project the member has posted about (for "Change project").
+    fetchAll<{ message_scores: { project: string } | { project: string }[] }>(
+      (f, t) =>
+        supabase
+          .from("messages")
+          .select("message_scores!inner(project)")
+          .eq("member_id", memberId)
+          .not("message_scores.project", "is", null)
+          .range(f, t),
+    ),
+    // All their approved ships, to tell which one earns each project's points.
+    fetchAll<{
+      message_id: string;
+      messages: ShippedMessage | ShippedMessage[];
+    }>((f, t) =>
+      supabase
+        .from("shipped_approvals")
+        .select(
+          "message_id, messages!inner(member_id, created_at, message_scores(project))",
+        )
+        .eq("status", "shipped")
+        .eq("messages.member_id", memberId)
+        .range(f, t),
+    ),
+    supabase
+      .from("project_aliases")
+      .select("member_id, alias, canonical")
+      .eq("member_id", memberId),
   ]);
+
+  const aliases = buildAliasMap(aliasRows.data ?? []);
+  const credit = shippedCreditedTo(
+    shippedRows.map((r) => {
+      const m = one(r.messages)!;
+      return {
+        id: r.message_id,
+        member_id: m.member_id,
+        created_at: m.created_at,
+        category: "shipped",
+        project: one(m.message_scores)?.project ?? null,
+      };
+    }),
+    aliases,
+  );
+  const projects = new Map<string, string>(); // key → canonical name
+  for (const r of projectRows) {
+    const name = resolveProject(
+      memberId,
+      one(r.message_scores)?.project ?? null,
+      aliases,
+    );
+    if (name && !projects.has(projectKey(name)))
+      projects.set(projectKey(name), name);
+  }
 
   const snap = (period: string, i: number): ProfileSnapshot | null => {
     const s = snapshots.data?.find((x) => x.period === period);
@@ -247,6 +319,8 @@ export async function getProfile(memberId: string, supabase: SupabaseClient) {
     }),
     activity: activity.map((a) => a.created_at),
     heatmapWeeks: HEATMAP_WEEKS,
+    /** Distinct project names (aliases resolved), A–Z. */
+    projects: [...projects.values()].sort((a, b) => a.localeCompare(b)),
     updates: updateRows.map<RecentUpdate>((u) => {
       const s = one(
         u.message_scores as {
@@ -261,6 +335,10 @@ export async function getProfile(memberId: string, supabase: SupabaseClient) {
         category: effectiveCategory(s.category, approval),
         substance: s.substance,
       };
+      const creditedTo =
+        post.category === "shipped"
+          ? (credit.get(u.id)?.created_at ?? null)
+          : null;
       return {
         id: u.id,
         createdAt: u.created_at,
@@ -271,7 +349,8 @@ export async function getProfile(memberId: string, supabase: SupabaseClient) {
         category: effectiveCategory(s.category, approval),
         approval,
         substance: s.substance,
-        points: updatePoints(post),
+        points: creditedTo ? 0 : updatePoints(post),
+        creditedTo,
         streak: isUpdate(post) ? countsForStreak(post) : null,
         summary: s.summary,
         project: s.project,

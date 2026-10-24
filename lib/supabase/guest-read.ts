@@ -20,6 +20,7 @@ export const GUEST_READABLE_TABLES = new Set([
   "bonus_points",
   "member_summaries",
   "shipped_approvals",
+  "project_aliases",
 ]);
 
 export class GuestWriteBlocked extends Error {}

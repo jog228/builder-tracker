@@ -43,12 +43,25 @@ vi.mock("@/lib/supabase/server", () => ({
         state.calls.push({ op: "insert", table, values });
         return { error: null };
       },
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: { member_id: OWNER } }),
+        }),
+      }),
     }),
+    rpc: async (fn: string, values: unknown) => {
+      state.calls.push({ op: "rpc", table: fn, values });
+      return { error: null };
+    },
   }),
 }));
 
-const { awardCommunityPoints, saveNowBuilding, undoCommunityPoints } =
-  await import("./actions");
+const {
+  awardCommunityPoints,
+  reassignProject,
+  saveNowBuilding,
+  undoCommunityPoints,
+} = await import("./actions");
 
 const OWNER = "22222222-2222-4222-8222-222222222222";
 const OTHER = "33333333-3333-4333-8333-333333333333";
@@ -186,6 +199,51 @@ describe("community points (admins only)", () => {
         status: 403,
       });
     }
+    expect(state.calls).toEqual([]);
+  });
+});
+
+describe("reassignProject (admins only)", () => {
+  it.each([
+    ["a regular member", member(OTHER)],
+    ["the profile's owner", member(OWNER)],
+    ["a signed-out visitor", null],
+    ["a guest (portfolio spectator)", null],
+  ])("returns 403 for %s, without touching the database", async (_w, v) => {
+    state.viewer = v;
+    await expect(
+      reassignProject("179270676369414506", "Campus Crush"),
+    ).resolves.toMatchObject({ ok: false, status: 403 });
+    expect(state.calls).toEqual([]);
+  });
+
+  it("lets an admin move an update, through reassign_project()", async () => {
+    state.viewer = member(OTHER, { isAdmin: true });
+    await expect(
+      reassignProject("179270676369414506", "  Campus   Crush "),
+    ).resolves.toEqual({ ok: true, project: "Campus Crush" });
+    expect(state.calls).toEqual([
+      {
+        op: "rpc",
+        table: "reassign_project",
+        values: {
+          p_message_id: "179270676369414506",
+          p_project: "Campus Crush",
+        },
+      },
+    ]);
+  });
+
+  it.each([
+    ["a blank name", "179270676369414506", "   "],
+    ["a too-long name", "179270676369414506", "x".repeat(61)],
+    ["a malformed message id", "not-an-id", "Campus Crush"],
+  ])("rejects %s with 400", async (_w, id, name) => {
+    state.viewer = member(OTHER, { isAdmin: true });
+    await expect(reassignProject(id, name)).resolves.toMatchObject({
+      ok: false,
+      status: 400,
+    });
     expect(state.calls).toEqual([]);
   });
 });

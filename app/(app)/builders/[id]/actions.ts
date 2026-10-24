@@ -161,3 +161,60 @@ export async function undoCommunityPoints(
   revalidatePath(`/builders/${data[0].member_id}`);
   return { ok: true };
 }
+
+// ─── Change an update's project (admins only) ───────────────────────────────
+
+/**
+ * Moves a scored update to another project (an existing one or a new name).
+ * Admins only (403 otherwise). Goes through reassign_project() with the
+ * admin's session, which re-checks admin, updates the project and logs the
+ * change in their name (shown under Decisions), then recomputes scores.
+ */
+export async function reassignProject(
+  messageId: string,
+  project: string,
+): Promise<
+  | { ok: true; project: string }
+  | { ok: false; status: 400 | 403 | 404; error: string }
+> {
+  const viewer = await getViewer();
+  if (!viewer?.isAdmin)
+    return {
+      ok: false,
+      status: 403,
+      error: "Only exec board admins can change projects.",
+    };
+  const name = project.replace(/\s+/g, " ").trim();
+  if (!/^\d+$/.test(messageId) || !name || name.length > 60)
+    return {
+      ok: false,
+      status: 400,
+      error: "Give the project a name (up to 60 characters).",
+    };
+
+  const supabase = await createClient();
+  const { data: msg } = await supabase
+    .from("messages")
+    .select("member_id")
+    .eq("id", messageId)
+    .maybeSingle();
+  const { error } = await supabase.rpc("reassign_project", {
+    p_message_id: messageId,
+    p_project: name,
+  });
+  if (error)
+    return error.code === "42501"
+      ? {
+          ok: false,
+          status: 403,
+          error: "Only exec board admins can change projects.",
+        }
+      : error.code === "P0002"
+        ? { ok: false, status: 404, error: "That update isn't scored." }
+        : { ok: false, status: 400, error: error.message };
+
+  scheduleRecompute();
+  if (msg?.member_id) revalidatePath(`/builders/${msg.member_id}`);
+  revalidatePath("/admin/shipped");
+  return { ok: true, project: name };
+}
