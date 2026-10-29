@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)) } },
   test: {
     include: ["tests/db/**/*.test.ts"],
+    globalSetup: ["tests/db/sweep.ts"],
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

@@ -52,7 +52,11 @@ beforeAll(async () => {
   if (sError) throw sError;
 });
 afterAll(async () => {
-  await service.from("messages").delete().eq("id", MESSAGE_ID);
+  const { error } = await service
+    .from("messages")
+    .delete()
+    .eq("id", MESSAGE_ID);
+  if (error) throw error;
   await f.cleanup();
 });
 

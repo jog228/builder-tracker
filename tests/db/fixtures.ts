@@ -1,6 +1,9 @@
 // Throwaway members with real signed-in sessions, for tests/db. Call
 // cleanup() in afterAll: it deletes the members (cascading their rows) and
-// their auth users.
+// their auth users, and throws if any delete failed. Ids are recorded as
+// soon as each row exists, so a fixture that fails halfway is still cleaned
+// up; sweep.ts catches anything left after the whole run.
+// TODO (PLAN.md §6, Phase 8): run these against a separate test project.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -61,9 +64,20 @@ export function fixtures(tag: string) {
       return { id: m.id, client };
     },
     async cleanup() {
-      if (memberIds.length)
-        await service.from("members").delete().in("id", memberIds);
-      for (const id of authIds) await service.auth.admin.deleteUser(id);
+      const errors: string[] = [];
+      if (memberIds.length) {
+        const { error } = await service
+          .from("members")
+          .delete()
+          .in("id", memberIds);
+        if (error) errors.push(`members: ${error.message}`);
+      }
+      for (const id of authIds) {
+        const { error } = await service.auth.admin.deleteUser(id);
+        if (error) errors.push(`auth user ${id}: ${error.message}`);
+      }
+      if (errors.length)
+        throw new Error(`[${tag}] cleanup failed:\n${errors.join("\n")}`);
     },
   };
 }

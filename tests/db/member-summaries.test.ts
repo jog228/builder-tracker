@@ -2,69 +2,20 @@
 // override, in their own name (RLS); exec board members can't have a row
 // (trigger); generated columns are service-role only. Throwaway fixtures,
 // deleted afterwards.
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { fixtures, service } from "./fixtures";
 
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const service = createClient(URL, process.env.SUPABASE_SECRET_KEY!, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-const tag = `summary-test-${Date.now()}`;
-const authUsers: string[] = [];
+const f = fixtures(`summary-test-${Date.now()}`);
 const ids = { member: "", other: "", admin: "" };
 let asMember: SupabaseClient; // the profile's owner
 let asOther: SupabaseClient; // another regular member
 let asAdmin: SupabaseClient; // an exec board admin
 
-async function fixture(
-  role: "member" | "admin",
-  excluded: boolean,
-  key: string = role,
-) {
-  const email = `${tag}-${key}@example.invalid`;
-  const { data: u, error } = await service.auth.admin.createUser({
-    email,
-    email_confirm: true,
-  });
-  if (error) throw error;
-  authUsers.push(u.user.id);
-  const { data: m, error: mError } = await service
-    .from("members")
-    .insert({
-      display_name: `[${tag}] ${key}`,
-      email,
-      role,
-      active: true,
-      exclude_from_rankings: excluded,
-      auth_user_id: u.user.id,
-    })
-    .select("id")
-    .single();
-  if (mError) throw mError;
-  const { data: link, error: lError } = await service.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  });
-  if (lError) throw lError;
-  const client = createClient(
-    URL,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
-  );
-  const { error: oError } = await client.auth.verifyOtp({
-    token_hash: link.properties.hashed_token,
-    type: "magiclink",
-  });
-  if (oError) throw oError;
-  return { id: m.id as string, client };
-}
-
 beforeAll(async () => {
-  const member = await fixture("member", false);
-  const other = await fixture("member", false, "other");
-  const admin = await fixture("admin", true); // exec: admin + excluded
+  const member = await f.member("member");
+  const other = await f.member("other");
+  const admin = await f.member("admin", { role: "admin", excluded: true }); // exec
   ids.member = member.id;
   ids.other = other.id;
   ids.admin = admin.id;
@@ -80,11 +31,7 @@ beforeAll(async () => {
   if (error) throw error;
 });
 
-afterAll(async () => {
-  const members = [ids.member, ids.other, ids.admin].filter(Boolean);
-  if (members.length) await service.from("members").delete().in("id", members);
-  for (const id of authUsers) await service.auth.admin.deleteUser(id);
-});
+afterAll(() => f.cleanup());
 
 const read = async () =>
   (

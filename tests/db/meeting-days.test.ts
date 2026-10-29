@@ -23,7 +23,10 @@ beforeAll(async () => {
   adminId = (await f.member("admin", { role: "admin" })).id;
 });
 afterAll(async () => {
-  if (created.length) await service.from("events").delete().in("id", created);
+  if (created.length) {
+    const { error } = await service.from("events").delete().in("id", created);
+    if (error) throw error;
+  }
   await f.cleanup();
 });
 

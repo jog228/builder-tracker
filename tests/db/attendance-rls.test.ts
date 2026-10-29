@@ -1,67 +1,20 @@
 // Database layer: RLS and triggers on attendance/events, exercised through the
 // real API with real sessions. Creates a throwaway member, admin and event
 // (dated 2000, so it can't land in a current score) and deletes them after.
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const service = createClient(URL, process.env.SUPABASE_SECRET_KEY!, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+import { fixtures, service } from "./fixtures";
 
 const tag = `rls-test-${Date.now()}`;
-const ids = { member: "", admin: "", event: "", authUsers: [] as string[] };
+const f = fixtures(tag);
+const ids = { member: "", admin: "", event: "" };
 let asMember: SupabaseClient;
 let asAdmin: SupabaseClient;
 
-/** A members row plus a signed-in client for it (no email is sent). */
-async function fixture(role: "member" | "admin", excluded: boolean) {
-  const email = `${tag}-${role}@example.invalid`;
-  const { data: created, error } = await service.auth.admin.createUser({
-    email,
-    email_confirm: true,
-  });
-  if (error) throw error;
-  ids.authUsers.push(created.user.id);
-  const { data: row, error: rowError } = await service
-    .from("members")
-    .insert({
-      display_name: `[${tag}] ${role}`,
-      email,
-      role,
-      active: true,
-      exclude_from_rankings: excluded,
-      auth_user_id: created.user.id,
-    })
-    .select("id")
-    .single();
-  if (rowError) throw rowError;
-
-  const { data: link, error: linkError } =
-    await service.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-    });
-  if (linkError) throw linkError;
-  const client = createClient(
-    URL,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
-  );
-  const { error: otpError } = await client.auth.verifyOtp({
-    token_hash: link.properties.hashed_token,
-    type: "magiclink",
-  });
-  if (otpError) throw otpError;
-  return { id: row.id as string, client };
-}
-
 beforeAll(async () => {
   // A regular, rankable member and an exec admin (admin + excluded).
-  const member = await fixture("member", false);
-  const admin = await fixture("admin", true);
+  const member = await f.member("member");
+  const admin = await f.member("admin", { role: "admin", excluded: true });
   ids.member = member.id;
   ids.admin = admin.id;
   asMember = member.client;
@@ -82,10 +35,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Attendance and bonus rows go with the event and members (on delete cascade).
-  if (ids.event) await service.from("events").delete().eq("id", ids.event);
-  const members = [ids.member, ids.admin].filter(Boolean);
-  if (members.length) await service.from("members").delete().in("id", members);
-  for (const id of ids.authUsers) await service.auth.admin.deleteUser(id);
+  if (ids.event) {
+    const { error } = await service.from("events").delete().eq("id", ids.event);
+    if (error) throw error;
+  }
+  await f.cleanup();
 });
 
 const attendanceRow = async () =>
