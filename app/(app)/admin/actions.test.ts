@@ -37,7 +37,8 @@ vi.mock("@/lib/auth", async (orig) => {
 });
 
 const { decideShipped, flagShipped, reopenShipped } = await import("./actions");
-const { setCheckin } = await import("./checkin/actions");
+const { createMeeting, setCheckin, skipMeeting, unskipMeeting } =
+  await import("./checkin/actions");
 
 const EVENT = "11111111-1111-4111-8111-111111111111";
 const MEMBER = "22222222-2222-4222-8222-222222222222";
@@ -59,6 +60,9 @@ describe.each([
       "setCheckin",
       () => setCheckin(EVENT, MEMBER, { present: true, demo: false }),
     ],
+    ["createMeeting", () => createMeeting("2026-11-12", "16:30")],
+    ["skipMeeting", () => skipMeeting("2026-11-05", "", true)],
+    ["unskipMeeting", () => unskipMeeting("2026-10-29")],
   ])("%s returns 403 without touching the database", async (_name, call) => {
     await expect(call()).resolves.toMatchObject({ ok: false, status: 403 });
     expect(dbTouched.count).toBe(0);

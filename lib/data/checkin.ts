@@ -32,13 +32,18 @@ export async function listMeetings(
   return data;
 }
 
-/** Usual meeting days marked "no meeting" (`meeting_skips`). */
-export async function listSkippedDates(
+export type MeetingSkip = { date: string; reason: string | null };
+
+/** Usual meeting days marked "no meeting" (`meeting_skips`), newest first. */
+export async function listSkips(
   supabase: SupabaseClient,
-): Promise<string[]> {
-  const { data, error } = await supabase.from("meeting_skips").select("date");
+): Promise<MeetingSkip[]> {
+  const { data, error } = await supabase
+    .from("meeting_skips")
+    .select("date, reason")
+    .order("date", { ascending: false });
   if (error) throw error;
-  return data.map((r) => r.date);
+  return data;
 }
 
 /**

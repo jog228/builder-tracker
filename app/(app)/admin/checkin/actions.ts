@@ -7,7 +7,7 @@ import {
   type CheckinTarget,
 } from "@/lib/attendance/checkin";
 import { checkNewMeeting } from "@/lib/attendance/meeting-days";
-import { meetingLabel } from "@/lib/attendance/weeks";
+import { inSeason, meetingLabel } from "@/lib/attendance/weeks";
 import { FORBIDDEN, getAdmin, getViewer } from "@/lib/auth";
 import { listMeetings, supabaseCheckinStore } from "@/lib/data/checkin";
 import { WEEKLY_MEETING } from "@/lib/scoring/config";
@@ -91,4 +91,92 @@ export async function createMeeting(
   if (error) return { ok: false, status: 400, error: error.message };
   revalidatePath("/admin/checkin");
   return { ok: true, date: check.date };
+}
+
+export type SkipResult =
+  | { ok: true; removedSignIns: number }
+  | { ok: false; status: 400 | 403 | 409; error: string }
+  /** The meeting has sign-ins: ask, then call again with removeSignIns. */
+  | { ok: false; status: 409; error: string; confirmSignIns: number };
+
+const isDate = (d: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d));
+const NOTE_MAX = 200;
+
+/**
+ * "No meeting this week": admins only (403 otherwise). Marks `date` skipped
+ * and removes its meeting, in one transaction (skip_meeting() in the
+ * database). A meeting with sign-ins is only skipped when the admin
+ * confirmed removing them; one with demos never is (409).
+ */
+export async function skipMeeting(
+  date: string,
+  note: string,
+  removeSignIns: boolean,
+): Promise<SkipResult> {
+  const viewer = await getAdmin();
+  if (!viewer) return FORBIDDEN;
+  if (!isDate(date) || !inSeason(date))
+    return { ok: false, status: 400, error: "Pick a meeting this season." };
+  if (note.length > NOTE_MAX)
+    return {
+      ok: false,
+      status: 400,
+      error: `Keep the note under ${NOTE_MAX} characters.`,
+    };
+
+  const supabase = await createClient();
+  if (!removeSignIns) {
+    const { data: meeting, error: mError } = await supabase
+      .from("events")
+      .select("attendance(count)")
+      .eq("type", "meeting")
+      .eq("date", date)
+      .maybeSingle<{ attendance: { count: number }[] }>();
+    if (mError) return { ok: false, status: 400, error: mError.message };
+    const signIns = meeting?.attendance[0]?.count ?? 0;
+    if (signIns > 0)
+      return {
+        ok: false,
+        status: 409,
+        error: `${signIns} ${signIns === 1 ? "builder is" : "builders are"} signed in to this meeting.`,
+        confirmSignIns: signIns,
+      };
+  }
+  const { data, error } = await supabase.rpc("skip_meeting", {
+    p_date: date,
+    p_reason: note,
+    p_remove_sign_ins: removeSignIns,
+  });
+  if (error?.code === "23505")
+    return { ok: false, status: 409, error: "That date is already skipped." };
+  if (error?.code === "23514")
+    return { ok: false, status: 409, error: `Not skipped: ${error.message}.` };
+  if (error?.code === "42501") return FORBIDDEN;
+  if (error) return { ok: false, status: 400, error: error.message };
+  revalidatePath("/admin/checkin");
+  if (data > 0) scheduleRecompute();
+  return { ok: true, removedSignIns: data };
+}
+
+/**
+ * "Undo skip": admins only (403 otherwise). The usual meeting day is offered
+ * again (and created when opened).
+ */
+export async function unskipMeeting(
+  date: string,
+): Promise<{ ok: true } | { ok: false; status: 400 | 403; error: string }> {
+  const viewer = await getAdmin();
+  if (!viewer) return FORBIDDEN;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("meeting_skips")
+    .delete()
+    .eq("date", date)
+    .select("date");
+  if (error) return { ok: false, status: 400, error: error.message };
+  if (!data.length)
+    return { ok: false, status: 400, error: "That date isn't skipped." };
+  revalidatePath("/admin/checkin");
+  return { ok: true };
 }

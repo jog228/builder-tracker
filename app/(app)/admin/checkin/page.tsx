@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, MonitorPlay } from "lucide-react";
 import Link from "next/link";
 import { CheckinSheet, WeekSelect } from "@/components/admin/checkin-sheet";
 import { NewMeeting } from "@/components/admin/new-meeting";
+import { SkipMeeting, SkippedDays } from "@/components/admin/skip-meeting";
 import { Icon } from "@/components/bs/icon";
 import { Eyebrow } from "@/components/bs/site";
 import {
@@ -13,6 +14,7 @@ import {
   timeLabel,
 } from "@/lib/attendance/meeting-days";
 import {
+  inSeason,
   isKickoff,
   meetingDate,
   meetingLabel,
@@ -20,11 +22,7 @@ import {
   seasonFirstWeek,
 } from "@/lib/attendance/weeks";
 import { requireAdmin } from "@/lib/auth";
-import {
-  getCheckinSheet,
-  listMeetings,
-  listSkippedDates,
-} from "@/lib/data/checkin";
+import { getCheckinSheet, listMeetings, listSkips } from "@/lib/data/checkin";
 import { BONUS, WEEKLY_MEETING, WEIGHTS } from "@/lib/scoring/config";
 import { localDate } from "@/lib/scoring/time";
 import { createClient } from "@/lib/supabase/server";
@@ -49,9 +47,9 @@ export default async function CheckinPage({
   const now = new Date();
   const today = localDate(now);
 
-  const [meetings, skipped] = await Promise.all([
+  const [meetings, skips] = await Promise.all([
     listMeetings(supabase),
-    listSkippedDates(supabase),
+    listSkips(supabase),
   ]);
   const latest = meetings[0] ?? null;
   // Newest first: season weeks' usual days up to now (minus skipped ones),
@@ -59,7 +57,7 @@ export default async function CheckinPage({
   const options = meetingOptions(
     meetings.map((m) => m.date),
     now,
-    { skipped },
+    { skipped: skips.map((s) => s.date) },
   );
   const date = resolveMeetingDate(await searchParams, options, now);
   const i = options.findIndex((o) => o.date === date);
@@ -70,6 +68,7 @@ export default async function CheckinPage({
       ? "/admin/checkin"
       : `/admin/checkin?date=${d}`;
   const upcoming = sheet.event.date > today;
+  const signIns = sheet.members.filter((m) => m.present).length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -90,17 +89,31 @@ export default async function CheckinPage({
             {BONUS.demoPoints} and signs them in too.
           </p>
         </div>
-        <NewMeeting
-          defaultDate={nextMeetingDate(latest?.date ?? null, now)}
-          defaultTime={(latest?.start_time ?? WEEKLY_MEETING.time).slice(0, 5)}
-          title={latest?.name ?? WEEKLY_MEETING.name}
-          signInPoints={
-            WEIGHTS.eventAttended.points * Number(latest?.weight ?? 1)
-          }
-          demoPoints={BONUS.demoPoints}
-          minDate={meetingDate(seasonFirstWeek())}
-          maxDate={addDays(today, MAX_DAYS_AHEAD)}
-        />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <SkipMeeting
+            key={sheet.event.date}
+            date={sheet.event.date}
+            title={meetingLabel(sheet.event.date)}
+            label={
+              selected?.current ? "No meeting this week" : "No meeting this day"
+            }
+            signIns={signIns}
+          />
+          <NewMeeting
+            defaultDate={nextMeetingDate(latest?.date ?? null, now)}
+            defaultTime={(latest?.start_time ?? WEEKLY_MEETING.time).slice(
+              0,
+              5,
+            )}
+            title={latest?.name ?? WEEKLY_MEETING.name}
+            signInPoints={
+              WEIGHTS.eventAttended.points * Number(latest?.weight ?? 1)
+            }
+            demoPoints={BONUS.demoPoints}
+            minDate={meetingDate(seasonFirstWeek())}
+            maxDate={addDays(today, MAX_DAYS_AHEAD)}
+          />
+        </div>
       </div>
 
       <nav
@@ -130,6 +143,11 @@ export default async function CheckinPage({
           disabledHint="No later meetings yet"
         />
       </nav>
+      <SkippedDays
+        skips={skips
+          .filter((s) => inSeason(s.date))
+          .map((s) => ({ ...s, title: meetingTitle(s.date) }))}
+      />
       {!selected?.current && !upcoming && (
         <p className="border-rust text-rust border-2 px-3 py-2 font-semibold">
           Fixing a past meeting ({meetingTitle(sheet.event.date)}).{" "}
