@@ -159,3 +159,41 @@ describe("a week that already has a meeting on another day", () => {
     ]);
   });
 });
+
+describe("a skipped week (meeting_skips)", () => {
+  // Thu Oct 29 skipped, the meeting moved to Thu Nov 5. Today is Oct 29.
+  const THU = new Date("2026-10-29T19:00:00Z");
+  const moved = [...existing, "2026-11-05"];
+
+  it("doesn't offer (or create) the skipped Thursday", () => {
+    const dates = meetingOptions(moved, THU, { skipped: ["2026-10-29"] }).map(
+      (o) => o.date,
+    );
+    expect(dates).toEqual([
+      "2026-11-05",
+      "2026-10-22",
+      "2026-10-15",
+      "2026-10-08",
+      "2026-10-01",
+    ]);
+  });
+
+  it("opens to the next upcoming meeting", () => {
+    const opts = meetingOptions(moved, THU, { skipped: ["2026-10-29"] });
+    expect(opts.some((o) => o.current)).toBe(false);
+    expect(resolveMeetingDate({}, opts, THU)).toBe("2026-11-05");
+    expect(optionLabel(opts[0])).toBe("Upcoming · Thu, Nov 5");
+  });
+
+  it("opens to the latest meeting when nothing is upcoming", () => {
+    const opts = meetingOptions(existing, THU, { skipped: ["2026-10-29"] });
+    expect(resolveMeetingDate({}, opts, THU)).toBe("2026-10-22");
+  });
+
+  it("an existing meeting on a skipped date is still shown", () => {
+    const dates = meetingOptions([...existing, "2026-10-29"], THU, {
+      skipped: ["2026-10-29"],
+    }).map((o) => o.date);
+    expect(dates).toContain("2026-10-29");
+  });
+});

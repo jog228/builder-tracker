@@ -62,6 +62,15 @@ export async function createMeeting(
   );
   if (!check.ok) return check;
 
+  // Scheduling on a skipped day un-skips it (the database rejects a meeting
+  // on a skipped date).
+  const unskip = await supabase
+    .from("meeting_skips")
+    .delete()
+    .eq("date", check.date);
+  if (unskip.error)
+    return { ok: false, status: 400, error: unskip.error.message };
+
   const latest = meetings[0] ?? null;
   const { error } = await supabase.from("events").insert({
     name: latest?.name ?? WEEKLY_MEETING.name,

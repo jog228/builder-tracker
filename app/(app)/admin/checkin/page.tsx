@@ -20,7 +20,11 @@ import {
   seasonFirstWeek,
 } from "@/lib/attendance/weeks";
 import { requireAdmin } from "@/lib/auth";
-import { getCheckinSheet, listMeetings } from "@/lib/data/checkin";
+import {
+  getCheckinSheet,
+  listMeetings,
+  listSkippedDates,
+} from "@/lib/data/checkin";
 import { BONUS, WEEKLY_MEETING, WEIGHTS } from "@/lib/scoring/config";
 import { localDate } from "@/lib/scoring/time";
 import { createClient } from "@/lib/supabase/server";
@@ -45,13 +49,17 @@ export default async function CheckinPage({
   const now = new Date();
   const today = localDate(now);
 
-  const meetings = await listMeetings(supabase);
+  const [meetings, skipped] = await Promise.all([
+    listMeetings(supabase),
+    listSkippedDates(supabase),
+  ]);
   const latest = meetings[0] ?? null;
-  // Newest first: season weeks' usual days up to now, plus every meeting
-  // (future ones included, so "Later" reaches them).
+  // Newest first: season weeks' usual days up to now (minus skipped ones),
+  // plus every meeting (future ones included, so "Later" reaches them).
   const options = meetingOptions(
     meetings.map((m) => m.date),
     now,
+    { skipped },
   );
   const date = resolveMeetingDate(await searchParams, options, now);
   const i = options.findIndex((o) => o.date === date);

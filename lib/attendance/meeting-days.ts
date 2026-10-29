@@ -45,20 +45,26 @@ function weekMeeting(week: string, existing: string[], today: string): string {
  * Picker dates, newest first: every existing meeting since the season start
  * (future ones included), plus the usual meeting day of each season week up
  * to this week that has no meeting yet (opened, and created, as before). A
- * week that already has a meeting on another day gets no extra Thursday.
+ * week that already has a meeting on another day gets no extra Thursday, and
+ * a skipped usual day (`meeting_skips`) isn't offered at all.
  */
 export function meetingOptions(
   existingDates: string[],
   now: Date = new Date(),
-  seasonStart: string = SEASON_START,
+  {
+    skipped = [],
+    seasonStart = SEASON_START,
+  }: { skipped?: string[]; seasonStart?: string } = {},
 ): MeetingOption[] {
   const today = localDate(now);
   const existing = existingDates.filter((d) => inSeason(d, seasonStart));
   const existingSet = new Set(existing);
+  const skippedSet = new Set(skipped);
   const weeksWithMeetings = new Set(existing.map((d) => weekKey(d)));
   const defaults = pickerWeeks(now, seasonStart)
     .filter((w) => !weeksWithMeetings.has(w))
-    .map(meetingDate);
+    .map(meetingDate)
+    .filter((d) => !skippedSet.has(d));
   const current = weekMeeting(weekKey(now), existing, today);
   return [...new Set([...defaults, ...existing])]
     .sort((a, b) => b.localeCompare(a))
@@ -94,7 +100,12 @@ export function resolveMeetingDate(
     );
     if (offered.has(d)) return d;
   }
-  return options.find((o) => o.current)?.date ?? options[0].date;
+  // This week skipped: the next upcoming meeting, else the latest one.
+  return (
+    options.find((o) => o.current)?.date ??
+    options.filter((o) => o.upcoming).at(-1)?.date ??
+    options[0].date
+  );
 }
 
 /**

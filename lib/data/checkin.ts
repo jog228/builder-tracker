@@ -32,6 +32,15 @@ export async function listMeetings(
   return data;
 }
 
+/** Usual meeting days marked "no meeting" (`meeting_skips`). */
+export async function listSkippedDates(
+  supabase: SupabaseClient,
+): Promise<string[]> {
+  const { data, error } = await supabase.from("meeting_skips").select("date");
+  if (error) throw error;
+  return data.map((r) => r.date);
+}
+
 /**
  * The meeting on `date`, created on first open if it's a season week's usual
  * meeting day (copying the latest meeting's title, weight and time). One
