@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Mail, UserPlus, Users, X } from "lucide-react";
+import { Check, ChevronDown, Mail, UserPlus, Users, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
   removeTeammate,
@@ -290,20 +290,28 @@ function AddTeammate({
       >
         Add a teammate
       </label>
-      <select
-        id="add-teammate"
-        value={choice}
-        onChange={(e) => setChoice(e.target.value)}
-        disabled={pending || disabled}
-        className="border-ink bg-paper min-h-10 min-w-0 flex-1 border-2 px-2 text-lg"
-      >
-        <option value="">Pick a builder…</option>
-        {candidates.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+      {/* Chevron drawn like the check-in WeekSelect (ChevronDown, text-lg,
+          12px from the right); pr-10 keeps the text clear of it. */}
+      <div className="relative flex min-w-0 flex-1">
+        <select
+          id="add-teammate"
+          value={choice}
+          onChange={(e) => setChoice(e.target.value)}
+          disabled={pending || disabled}
+          className="border-ink bg-paper min-h-10 w-full min-w-0 appearance-none border-2 pr-10 pl-2 text-lg"
+        >
+          <option value="">Pick a builder…</option>
+          {candidates.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <Icon
+          icon={ChevronDown}
+          className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-lg"
+        />
+      </div>
       <button
         type="submit"
         disabled={!picked || pending || disabled}
