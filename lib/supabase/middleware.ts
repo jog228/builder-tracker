@@ -1,6 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { routeDecision, routeAccess } from "@/lib/access";
+import {
+  RETURN_TO_COOKIE,
+  routeDecision,
+  routeAccess,
+  safeReturnTo,
+} from "@/lib/access";
 import { GUEST_COOKIE, verifyGuestToken } from "@/lib/guest-token";
 
 /**
@@ -63,6 +68,17 @@ export async function updateSession(request: NextRequest) {
     const redirect = NextResponse.redirect(url);
     // Keep any refreshed session cookies.
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+    // Signed out on a teammate email link: come back to it after login.
+    const returnTo =
+      decision.to === "/login" && safeReturnTo(path + request.nextUrl.search);
+    if (returnTo)
+      redirect.cookies.set(RETURN_TO_COOKIE, returnTo, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 15 * 60,
+      });
     return redirect;
   }
   return response;

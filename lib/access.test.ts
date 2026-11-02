@@ -6,6 +6,7 @@ import {
   guestAllowed,
   routeAccess,
   routeDecision,
+  safeReturnTo,
 } from "./access";
 
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
@@ -19,8 +20,13 @@ describe("routeAccess allowlist", () => {
       "/how-it-works",
       `/builders/${ID}`,
       "/stats/",
+      "/teammates/respond",
     ])
       expect(routeAccess(p), p).toBe("member");
+  });
+
+  it("keeps teammate email links away from guests", () => {
+    expect(guestAllowed("/teammates/respond")).toBe(false);
   });
 
   it("keeps the sign-in flow and cron routes public", () => {
@@ -215,4 +221,29 @@ describe("app/ inventory", () => {
         );
     },
   );
+});
+
+describe("safeReturnTo (back to a teammate email link after login)", () => {
+  const token = "A".repeat(43);
+  it("accepts exact teammate links", () => {
+    for (const p of [
+      `/teammates/respond?token=${token}`,
+      `/teammates/respond?token=${token}&action=confirm`,
+      `/teammates/respond?token=${token}&action=decline`,
+    ])
+      expect(safeReturnTo(p)).toBe(p);
+  });
+
+  it("rejects anything that could redirect elsewhere", () => {
+    for (const p of [
+      null,
+      "",
+      "/leaderboard",
+      "//evil.example",
+      "https://evil.example/teammates/respond?token=" + token,
+      `/teammates/respond?token=${token}&next=//evil.example`,
+      `/teammates/respond?token=${token.slice(1)}`,
+    ])
+      expect(safeReturnTo(p)).toBeNull();
+  });
 });
