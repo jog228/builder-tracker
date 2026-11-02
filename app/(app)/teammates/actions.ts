@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { getViewer } from "@/lib/auth";
 import { sendTeammateInvite } from "@/lib/teammates/invite";
 import {
+  cleanProject,
   requestOutcome,
   tokenProblem,
   type RequestOutcome,
@@ -54,23 +55,29 @@ async function invite(linkId: string) {
 }
 
 /**
- * Adds a teammate from the profile picker. The database checks the person is
- * on the roster, isn't you, and isn't already linked, pending, or in the
- * 30-day window after declining you. If they had already asked you, it's
- * confirmed on the spot. Otherwise it's pending and they get an email.
+ * Adds a teammate from the profile picker, optionally naming the project
+ * (cleaned and capped at 60 characters here and again in the database). The
+ * database checks the person is on the roster, isn't you, and isn't already
+ * linked, pending, or in the 30-day window after declining you. If they had
+ * already asked you, it's confirmed on the spot (their project name, if any,
+ * stays). Otherwise it's pending and they get an email.
  */
 export async function requestTeammate(
   recipientId: string,
+  project?: string | null,
 ): Promise<RequestOutcome & { emailSent?: boolean }> {
   const viewer = await getViewer();
   if (!viewer) return SIGN_IN;
   if (!UUID.test(recipientId)) return BAD;
   if (recipientId === viewer.memberId)
     return requestOutcome({ result: "self" });
+  const cleaned = cleanProject(project);
+  if (!cleaned.ok) return { ok: false, status: 400, error: cleaned.error };
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("request_teammate", {
     p_recipient: recipientId,
+    p_project: cleaned.project,
   });
   if (error) return rpcFail(error);
   const outcome = requestOutcome(data);
@@ -201,6 +208,40 @@ export async function respondTeammateByToken(
     requesterId: data.requester_id,
     requesterName: data.requester_name ?? null,
   };
+}
+
+/**
+ * The requester withdraws a pending request ("Uninvite"), whether or not the
+ * email went out. It isn't a decline: no cooldown, either can ask again. The
+ * recipient's request disappears and their email link says it was cancelled.
+ */
+export async function cancelTeammateRequest(
+  linkId: string,
+): Promise<TeammateResult> {
+  const viewer = await getViewer();
+  if (!viewer) return SIGN_IN;
+  if (!UUID.test(linkId)) return BAD;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("cancel_teammate_request", {
+    p_link_id: linkId,
+  });
+  if (error) return rpcFail(error);
+  if (data.result === "already_teammates") {
+    refresh();
+    return {
+      ok: false,
+      status: 409,
+      error: "They already accepted, so you're teammates now.",
+    };
+  }
+  if (data.result !== "cancelled")
+    return {
+      ok: false,
+      status: 404,
+      error: "That request isn't open anymore.",
+    };
+  refresh();
+  return { ok: true };
 }
 
 /** Either teammate removes a confirmed link; it leaves both profiles. */

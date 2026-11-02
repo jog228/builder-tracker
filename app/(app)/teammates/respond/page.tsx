@@ -30,6 +30,7 @@ export default async function RespondPage({
     status?: string;
     requesterName?: string | null;
     requesterId?: string;
+    project?: string | null;
   } = {};
   if (isTokenShape(token)) {
     const supabase = await createClient();
@@ -42,6 +43,7 @@ export default async function RespondPage({
       status: data.status,
       requesterName: data.requester_name,
       requesterId: data.requester_id,
+      project: data.project ?? null,
     };
   }
   const problem = tokenProblem(result, info);
@@ -63,6 +65,7 @@ export default async function RespondPage({
           <RespondButtons
             token={token!}
             requesterName={info.requesterName ?? "They"}
+            project={info.project ?? null}
             preferred={action === "decline" ? "decline" : "confirm"}
           />
         )}

@@ -49,6 +49,28 @@ describe("inviteEmail", () => {
     expect(e.html).toContain(urls.confirm.replace(/&/g, "&amp;"));
   });
 
+  it("shows the project name when there is one, escaped in the HTML", () => {
+    const base = {
+      requesterName: "Ava",
+      recipientName: "Ben",
+      confirmUrl: "c",
+      declineUrl: "d",
+    };
+    const plain = inviteEmail(base);
+    expect(plain.text).not.toContain("Project:");
+    expect(plain.html).not.toContain("Project:");
+
+    const e = inviteEmail({
+      ...base,
+      project: `<img src=x onerror="x()"> & Co`,
+    });
+    expect(e.text).toContain(`Project: <img src=x onerror="x()"> & Co`); // text/plain
+    expect(e.html).not.toContain("<img");
+    expect(e.html).toContain(
+      "Project:</span> &lt;img src=x onerror=&quot;x()&quot;&gt; &amp; Co",
+    );
+  });
+
   it("escapes names in the HTML", () => {
     const e = inviteEmail({
       requesterName: "<b>Eve</b>",

@@ -21,7 +21,7 @@ export async function sendTeammateInvite(
   const { data: link, error } = await db
     .from("teammate_links")
     .select(
-      "id, status, requester:members!teammate_links_requester_id_fkey(display_name), recipient:members!teammate_links_recipient_id_fkey(display_name, email)",
+      "id, status, project, requester:members!teammate_links_requester_id_fkey(display_name), recipient:members!teammate_links_recipient_id_fkey(display_name, email)",
     )
     .eq("id", linkId)
     .maybeSingle();
@@ -54,6 +54,7 @@ export async function sendTeammateInvite(
       recipientName: recipient.display_name,
       confirmUrl: urls.confirm,
       declineUrl: urls.decline,
+      project: link.project,
     }),
   });
   if (!sent.ok)

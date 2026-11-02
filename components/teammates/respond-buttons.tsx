@@ -14,10 +14,12 @@ import { cn } from "@/lib/utils";
 export function RespondButtons({
   token,
   requesterName,
+  project,
   preferred,
 }: {
   token: string;
   requesterName: string;
+  project: string | null;
   preferred: "confirm" | "decline";
 }) {
   const [res, setRes] = useState<TokenResponse | null>(null);
@@ -52,6 +54,12 @@ export function RespondButtons({
         {requesterName} says you&rsquo;re building together. Confirm and
         you&rsquo;ll show up as teammates on each other&rsquo;s builder file.
       </p>
+      {project && (
+        <p className="text-lg">
+          <span className="font-bold tracking-wider uppercase">Project:</span>{" "}
+          {project}
+        </p>
+      )}
       <div className="flex flex-wrap gap-3">
         <button
           disabled={pending}

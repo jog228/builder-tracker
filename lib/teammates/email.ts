@@ -24,11 +24,14 @@ export function inviteEmail({
   recipientName,
   confirmUrl,
   declineUrl,
+  project = null,
 }: {
   requesterName: string;
   recipientName: string;
   confirmUrl: string;
   declineUrl: string;
+  /** Optional project name, already cleaned (cleanProject()). */
+  project?: string | null;
 }) {
   const first = recipientName.trim().split(/\s+/)[0] || "builder";
   const subject = `${requesterName} added you as a teammate`;
@@ -37,6 +40,7 @@ export function inviteEmail({
     "",
     `${requesterName} says you're building together. Confirm and you'll show up as teammates on each other's builder file.`,
     "",
+    ...(project ? [`Project: ${project}`, ""] : []),
     `Confirm: ${confirmUrl}`,
     `Decline: ${declineUrl}`,
     "",
@@ -53,7 +57,7 @@ export function inviteEmail({
 <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase">Builder Society · Teammates</p>
 <h1 style="margin:0 0 16px;font-size:24px;text-transform:uppercase">${esc(requesterName)} added you as a teammate</h1>
 <p style="margin:0 0 16px;font-size:17px;line-height:1.4">Hey ${esc(first)}, ${esc(requesterName)} says you're building together. Confirm and you'll show up as teammates on each other's builder file.</p>
-<p style="margin:0 0 16px">${button(confirmUrl, "Confirm", true)}${button(declineUrl, "Decline", false)}</p>
+${project ? `<p style="margin:0 0 16px;font-size:17px"><span style="font-weight:700;letter-spacing:0.06em;text-transform:uppercase">Project:</span> ${esc(project)}</p>\n` : ""}<p style="margin:0 0 16px">${button(confirmUrl, "Confirm", true)}${button(declineUrl, "Decline", false)}</p>
 <p style="margin:0;font-size:14px;color:#4A5568">Sign in with your Lehigh Google account to answer. The link works once and expires in ${TOKEN_TTL_DAYS} days.</p>
 </div></div>`;
   return { subject, text, html };

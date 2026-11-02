@@ -35,6 +35,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 const {
+  cancelTeammateRequest,
   removeTeammate,
   requestTeammate,
   resendTeammateInvite,
@@ -65,6 +66,7 @@ describe("signed out / guests", () => {
       respondTeammateByToken(TOKEN, true),
       removeTeammate(LINK),
       resendTeammateInvite(LINK),
+      cancelTeammateRequest(LINK),
     ]))
       expect(r).toMatchObject({ ok: false, status: 403 });
     expect(state.rpcs).toEqual([]);
@@ -90,9 +92,28 @@ describe("requestTeammate", () => {
       emailSent: true,
     });
     expect(state.rpcs).toEqual([
-      { fn: "request_teammate", args: { p_recipient: THEM } },
+      { fn: "request_teammate", args: { p_recipient: THEM, p_project: null } },
     ]);
     expect(state.invite).toHaveBeenCalledWith(LINK, "https://bs.example");
+  });
+
+  it("sends the cleaned project name, and rejects a long one before the database", async () => {
+    state.rpcResult = { result: "pending", link_id: LINK };
+    await requestTeammate(THEM, "  Route\nPlanner\u0007 ");
+    expect(state.rpcs[0].args).toEqual({
+      p_recipient: THEM,
+      p_project: "Route Planner",
+    });
+    state.rpcs = [];
+    expect(await requestTeammate(THEM, "x".repeat(61))).toMatchObject({
+      ok: false,
+      status: 400,
+    });
+    expect(await requestTeammate(THEM, 7 as unknown as string)).toMatchObject({
+      ok: false,
+      status: 400,
+    });
+    expect(state.rpcs).toEqual([]);
   });
 
   it("keeps the request when the email fails", async () => {
@@ -184,6 +205,7 @@ describe("respondTeammateByToken", () => {
   });
 
   it.each([
+    ["cancelled", 409, "Request cancelled"],
     ["expired", 409, "This link expired"],
     ["used", 409, "Link already used"],
     ["not_yours", 403, "Wrong account"],
@@ -205,6 +227,34 @@ describe("respondTeammate / removeTeammate", () => {
       status: 404,
     });
     expect(await removeTeammate(LINK)).toMatchObject({
+      ok: false,
+      status: 404,
+    });
+  });
+});
+
+describe("cancelTeammateRequest", () => {
+  it("checks the id before the database, then calls the cancel RPC", async () => {
+    expect(await cancelTeammateRequest("nope")).toMatchObject({
+      ok: false,
+      status: 400,
+    });
+    expect(state.rpcs).toEqual([]);
+    state.rpcResult = { result: "cancelled", other_id: THEM };
+    expect(await cancelTeammateRequest(LINK)).toEqual({ ok: true });
+    expect(state.rpcs).toEqual([
+      { fn: "cancel_teammate_request", args: { p_link_id: LINK } },
+    ]);
+  });
+
+  it("explains when it's already accepted or isn't yours / open", async () => {
+    state.rpcResult = { result: "already_teammates" };
+    expect(await cancelTeammateRequest(LINK)).toMatchObject({
+      ok: false,
+      status: 409,
+    });
+    state.rpcResult = { result: "not_found" };
+    expect(await cancelTeammateRequest(LINK)).toMatchObject({
       ok: false,
       status: 404,
     });

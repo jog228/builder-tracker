@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  PROJECT_MAX_CHARS,
+  cleanProject,
   partitionLinks,
   requestOutcome,
   tokenProblem,
@@ -20,6 +22,7 @@ const link = (
   requester: person(o.requester_id, `Name ${o.requester_id}`),
   recipient: person(o.recipient_id, `Name ${o.recipient_id}`),
   ...o,
+  project: o.project ?? null,
 });
 
 describe("partitionLinks", () => {
@@ -54,6 +57,7 @@ describe("partitionLinks", () => {
       {
         linkId: "4",
         member: { id: "e", name: "Name e", avatarUrl: null },
+        project: null,
         emailFailed: true,
       },
     ]);
@@ -110,6 +114,76 @@ describe("partitionLinks", () => {
   });
 });
 
+describe("partitionLinks: project names", () => {
+  it("carries the link's project to both people", () => {
+    const row = link({
+      id: "1",
+      requester_id: "a",
+      recipient_id: "b",
+      status: "confirmed",
+      project: "Route Planner",
+    });
+    for (const who of ["a", "b"])
+      expect(partitionLinks([row], who).confirmed[0].project).toBe(
+        "Route Planner",
+      );
+    const incoming = link({
+      id: "2",
+      requester_id: "c",
+      recipient_id: ME,
+      project: "Robot",
+    });
+    expect(partitionLinks([incoming], ME).incoming[0].project).toBe("Robot");
+  });
+});
+
+describe("cleanProject", () => {
+  it("trims, and treats blank or missing as no project", () => {
+    expect(cleanProject("  Route Planner  ")).toEqual({
+      ok: true,
+      project: "Route Planner",
+    });
+    for (const blank of ["", "   ", "\t\n", undefined, null])
+      expect(cleanProject(blank)).toEqual({ ok: true, project: null });
+  });
+
+  it("strips control and bidi-override characters; line breaks become spaces", () => {
+    expect(cleanProject("Route\nPlanner")).toEqual({
+      ok: true,
+      project: "Route Planner",
+    });
+    expect(cleanProject("Ro\u0000ute\u0007 \u202ePlan\u2066ner\u009f")).toEqual(
+      {
+        ok: true,
+        project: "Route Planner",
+      },
+    );
+  });
+
+  it(`allows ${PROJECT_MAX_CHARS} characters and rejects more`, () => {
+    expect(cleanProject("x".repeat(60))).toEqual({
+      ok: true,
+      project: "x".repeat(60),
+    });
+    expect(cleanProject("x".repeat(61))).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/60 characters/),
+    });
+    // Counted after cleaning, so trailing spaces don't count.
+    expect(cleanProject(`${"x".repeat(60)}   `)).toMatchObject({ ok: true });
+  });
+
+  it("counts characters like Postgres does, not UTF-16 units", () => {
+    expect(cleanProject("🚀".repeat(60))).toMatchObject({ ok: true }); // 120 UTF-16 units
+    expect(cleanProject("🚀".repeat(61))).toMatchObject({ ok: false });
+  });
+
+  it("rejects non-strings", () => {
+    expect(cleanProject(42)).toMatchObject({ ok: false });
+    expect(cleanProject({ toString: () => "x" })).toMatchObject({ ok: false });
+  });
+});
+
 describe("requestOutcome", () => {
   it("passes pending and auto-confirmed requests through", () => {
     expect(requestOutcome({ result: "pending", link_id: "L" })).toEqual({
@@ -135,6 +209,14 @@ describe("requestOutcome", () => {
     expect(requestOutcome({ result })).toMatchObject({ ok: false, status });
   });
 
+  it("explains a project name the database found too long", () => {
+    expect(requestOutcome({ result: "project_too_long" })).toMatchObject({
+      ok: false,
+      status: 400,
+      error: expect.stringMatching(/60 characters/),
+    });
+  });
+
   it("says when the cooldown ends", () => {
     const r = requestOutcome({
       result: "cooldown",
@@ -149,17 +231,27 @@ describe("tokenProblem", () => {
     expect(tokenProblem("ok")).toBeNull();
   });
 
-  it.each(["invalid", "not_yours", "used", "expired", "not_found"] as const)(
-    "explains %s",
-    (r) => {
-      expect(tokenProblem(r)?.title).toBeTruthy();
-    },
-  );
+  it.each([
+    "invalid",
+    "not_yours",
+    "used",
+    "expired",
+    "cancelled",
+    "not_found",
+  ] as const)("explains %s", (r) => {
+    expect(tokenProblem(r)?.title).toBeTruthy();
+  });
 
   it("tells a confirmed teammate they're already linked", () => {
     expect(
       tokenProblem("used", { status: "confirmed", requesterName: "Ava" })?.body,
     ).toBe("You and Ava are already teammates.");
+  });
+
+  it("says a cancelled request was cancelled, not that the link is invalid", () => {
+    const p = tokenProblem("cancelled");
+    expect(p?.title).toBe("Request cancelled");
+    expect(p?.title).not.toBe(tokenProblem("invalid")?.title);
   });
 
   it("never names the requester to the wrong account", () => {

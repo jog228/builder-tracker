@@ -5,6 +5,8 @@
 import { dayLabel } from "@/lib/format";
 
 export const DECLINE_COOLDOWN_DAYS = 30;
+/** Max project name length (code points); the database checks it too. */
+export const PROJECT_MAX_CHARS = 60;
 
 export type TeammateMember = {
   id: string;
@@ -18,6 +20,7 @@ export type LinkRow = {
   requester_id: string;
   recipient_id: string;
   email_status: "sent" | "failed" | null;
+  project: string | null;
   requester: MemberRef | MemberRef[] | null;
   recipient: MemberRef | MemberRef[] | null;
 };
@@ -27,7 +30,12 @@ type MemberRef = {
   avatar_url: string | null;
 };
 
-export type TeammateEntry = { linkId: string; member: TeammateMember };
+export type TeammateEntry = {
+  linkId: string;
+  member: TeammateMember;
+  /** Optional project name on the link (plain text; React escapes it). */
+  project: string | null;
+};
 
 export type TeammateLists = {
   confirmed: TeammateEntry[];
@@ -61,6 +69,7 @@ export function partitionLinks(
         name: other.display_name,
         avatarUrl: other.avatar_url,
       },
+      project: r.project ?? null,
     };
     if (r.status === "confirmed") out.confirmed.push(entry);
     else if (r.status === "pending" && mine)
@@ -73,6 +82,37 @@ export function partitionLinks(
   out.incoming.sort(byName);
   out.outgoing.sort(byName);
   return out;
+}
+
+// ─── Project name ───────────────────────────────────────────────────────────
+
+// C0/C1 controls, plus the bidi embedding/override/isolate characters that
+// could make a name render differently from what it is. Same set as
+// teammate_clean_project() in the database.
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
+
+/**
+ * Cleans the optional project name from the picker: tabs/newlines become
+ * spaces, other control characters are stripped, it's trimmed, and blank
+ * means none. Over PROJECT_MAX_CHARS (counted in characters, not UTF-16
+ * units, like Postgres) is an error rather than a silent cut.
+ */
+export function cleanProject(
+  raw: unknown,
+): { ok: true; project: string | null } | { ok: false; error: string } {
+  if (raw == null) return { ok: true, project: null };
+  if (typeof raw !== "string") return { ok: false, error: "Bad request." };
+  const project = raw
+    .replace(/[\t\n\r]+/g, " ")
+    .replace(CONTROL, "")
+    .trim();
+  if (!project) return { ok: true, project: null };
+  if ([...project].length > PROJECT_MAX_CHARS)
+    return {
+      ok: false,
+      error: `Keep the project name to ${PROJECT_MAX_CHARS} characters.`,
+    };
+  return { ok: true, project };
 }
 
 // ─── RPC results → action results ──────────────────────────────────────────
@@ -107,6 +147,12 @@ export function requestOutcome(res: {
         status: 409,
         error: "You already sent them a request.",
       };
+    case "project_too_long":
+      return {
+        ok: false,
+        status: 400,
+        error: `Keep the project name to ${PROJECT_MAX_CHARS} characters.`,
+      };
     case "cooldown":
       return {
         ok: false,
@@ -124,6 +170,7 @@ export type TokenResult =
   | "not_yours"
   | "used"
   | "expired"
+  | "cancelled"
   | "confirmed"
   | "declined"
   | "not_found";
@@ -153,6 +200,11 @@ export function tokenProblem(
       return {
         title: "This link expired",
         body: `Links work for 14 days. ${who === "they" ? "The request" : `${who}'s request`} is still on your builder file, so you can answer it there.`,
+      };
+    case "cancelled":
+      return {
+        title: "Request cancelled",
+        body: "This request was cancelled, so there's nothing to answer. If they ask again, the new request will be on your builder file.",
       };
     case "not_yours":
       return {

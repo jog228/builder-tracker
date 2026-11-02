@@ -9,7 +9,7 @@ import {
 } from "@/lib/teammates/rules";
 
 const LINK_SELECT =
-  "id, status, requester_id, recipient_id, email_status, requester:members!teammate_links_requester_id_fkey(id, display_name, avatar_url), recipient:members!teammate_links_recipient_id_fkey(id, display_name, avatar_url)";
+  "id, status, requester_id, recipient_id, email_status, project, requester:members!teammate_links_requester_id_fkey(id, display_name, avatar_url), recipient:members!teammate_links_recipient_id_fkey(id, display_name, avatar_url)";
 
 /**
  * A profile's teammates. Everyone (guests too) sees confirmed ones; the
