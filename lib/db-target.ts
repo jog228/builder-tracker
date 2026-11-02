@@ -44,6 +44,11 @@ export function assertTestProject(
     );
   if (ref === PRODUCTION_PROJECT_REF)
     fail("NEXT_PUBLIC_SUPABASE_URL is the production project.");
+  // supabase-js adds /auth/v1, /rest/v1 itself; a path here breaks every call.
+  if (new URL(url!).pathname !== "/")
+    fail(
+      `NEXT_PUBLIC_SUPABASE_URL must be just https://${ref}.supabase.co (no /rest/v1 or other path).`,
+    );
   if (!env.SUPABASE_SECRET_KEY) fail("SUPABASE_SECRET_KEY is unset.");
   if (!env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
     fail("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is unset.");

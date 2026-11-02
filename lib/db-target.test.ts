@@ -57,6 +57,16 @@ describe("assertTestProject", () => {
     ).toThrow(/production database/);
   });
 
+  it("refuses a URL with a path (e.g. the REST endpoint)", () => {
+    expect(() =>
+      assertTestProject(
+        env({
+          NEXT_PUBLIC_SUPABASE_URL: `https://${TEST}.supabase.co/rest/v1/`,
+        }),
+      ),
+    ).toThrow(/no \/rest\/v1/);
+  });
+
   it("refuses missing or mismatched settings", () => {
     expect(() =>
       assertTestProject(env({ NEXT_PUBLIC_SUPABASE_URL: undefined })),
