@@ -15,6 +15,7 @@
     "groupme:sync": "tsx --conditions=react-server --env-file=.env.local scripts/sync-groupme.ts",
     "groupme:purge-raw": "tsx --conditions=react-server --env-file=.env.local scripts/purge-groupme-raw.ts",
     "db:push": "supabase db push",
+    "db:push:test": "tsx scripts/db-push-test.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:db": "vitest run --config vitest.db.config.ts",

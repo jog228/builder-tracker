@@ -251,7 +251,7 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 - Deploy to Vercel; add `vercel.json` crons: GroupMe every 6 hours; scoring, GitHub, and score computation nightly
 - Every cron route checks `Authorization: Bearer ${CRON_SECRET}`
 - `/admin/health`: last run, status, and errors for each sync
-- [ ] **TODO: separate test database.** `npm run test:db` still runs against production (`.env.local`). Create a second Supabase project, put its keys in `.env.test.local`, apply the migrations there, and make `vitest.db.config.ts` refuse to run unless it points at that project (URL differs from production's). Until then, fixtures record ids immediately, cleanup throws on failed deletes, and `tests/db/sweep.ts` removes `@example.invalid` leftovers after every run. (Added Oct 29, 2026, after two test members leaked into the live roster on Oct 24.)
+- [x] **Separate test database.** `npm run test:db` and `npm run db:push:test` read only `.env.test.local` and refuse the production project ref (`lib/db-target.ts`, checked in `vitest.db.config.ts`, `tests/db/fixtures.ts` and `tests/db/sweep.ts`). `npm run db:push` still targets the CLI-linked production project. (TODO added Oct 29, 2026 after two test members leaked into the live roster on Oct 24; guard added Nov 2.)
 - **Done when:** it runs untouched for a week and the numbers update on their own.
 
 ## 7. Guardrails for Claude Code
