@@ -163,6 +163,14 @@ export default async function BuilderPage({
         />
       )}
 
+      {/* Full width under "Now building". The add row and request buttons
+          are owner-only; candidates is null for everyone else. */}
+      <Teammates
+        lists={teammates}
+        candidates={teammates.candidates}
+        isOwner={viewer?.memberId === member.id}
+      />
+
       <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
         <div className="flex flex-col gap-6">
           {!excluded && (
@@ -223,12 +231,6 @@ export default async function BuilderPage({
               reasons={BONUS.community.reasons}
             />
           )}
-
-          <Teammates
-            lists={teammates}
-            candidates={teammates.candidates}
-            isOwner={viewer?.memberId === member.id}
-          />
 
           <Card>
             <SectionTitle
