@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:test": "tsx scripts/dev-test.ts",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
@@ -16,6 +17,7 @@
     "groupme:purge-raw": "tsx --conditions=react-server --env-file=.env.local scripts/purge-groupme-raw.ts",
     "db:push": "supabase db push",
     "db:push:test": "tsx scripts/db-push-test.ts",
+    "test:seed-members": "tsx scripts/test-seed-members.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:db": "vitest run --config vitest.db.config.ts",

@@ -14,6 +14,8 @@ at a time, and stop for review after each phase.
 ## Commands
 
 - `npm run dev`: dev server at http://localhost:3000
+- `npm run dev:test`: dev server against the TEST project (`.env.test.local`; production-only `.env.local` vars are blanked; refuses production)
+- `npm run test:seed-members -- "Name <email>" ... [--write]`: add roster members to the TEST project only (dry run unless `--write`)
 - `npm run lint` / `npm run typecheck` / `npm run format`
 - `npm run build`: production build
 - `npm run db:push`: apply `supabase/migrations/*.sql` to the linked project (production, Supabase CLI)
