@@ -54,6 +54,7 @@ export async function sendTeammateInvite(
       recipientName: recipient.display_name,
       confirmUrl: urls.confirm,
       declineUrl: urls.decline,
+      appUrl: baseUrl,
       project: link.project,
     }),
   });
