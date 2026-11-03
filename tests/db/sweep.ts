@@ -4,11 +4,14 @@
 // outside any season (2000s or 2099), skips on those dates, and messages from
 // "*-test-*" senders (real GroupMe ids are numeric).
 import { createClient } from "@supabase/supabase-js";
+import { assertTestProject } from "../../lib/db-target";
 
 const OUTSIDE_SEASON = "date.lt.2002-01-01,date.gte.2099-01-01";
 
 export default function setup() {
+  assertTestProject(process.env);
   return async function teardown() {
+    assertTestProject(process.env);
     const service = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SECRET_KEY!,

@@ -3,8 +3,12 @@
 // their auth users, and throws if any delete failed. Ids are recorded as
 // soon as each row exists, so a fixture that fails halfway is still cleaned
 // up; sweep.ts catches anything left after the whole run.
-// TODO (PLAN.md §6, Phase 8): run these against a separate test project.
+// Runs against the separate test project only (.env.test.local); refuses
+// production.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { assertTestProject } from "@/lib/db-target";
+
+assertTestProject(process.env);
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 export const service = createClient(URL, process.env.SUPABASE_SECRET_KEY!, {

@@ -29,6 +29,7 @@ import { AwardPoints, UndoAward } from "@/components/profile/award-points";
 import { NowBuilding } from "@/components/profile/now-building";
 import { ProjectPicker } from "@/components/profile/project-picker";
 import { ActivityHeatmap } from "@/components/profile/heatmap";
+import { Teammates } from "@/components/profile/teammates";
 import { attendanceRate, meetingsHeld } from "@/lib/attendance/meetings";
 import {
   badgeMonthLabel,
@@ -36,6 +37,7 @@ import {
 } from "@/lib/badges/never-misses";
 import { requireReader } from "@/lib/auth";
 import { getProfile, type ProfileSnapshot } from "@/lib/data/profile";
+import { getTeammates } from "@/lib/data/teammates";
 import { dayLabel, monthLabel, shortDate } from "@/lib/format";
 import { BADGES, BONUS } from "@/lib/scoring/config";
 import { standing, standingText } from "@/lib/scoring/standing";
@@ -58,7 +60,10 @@ export default async function BuilderPage({
   const { id } = await params;
   const allTime = (await searchParams).period === "all";
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const p = await getProfile(id, db);
+  const [p, teammates] = await Promise.all([
+    getProfile(id, db),
+    getTeammates(id, db, viewer),
+  ]);
   if (!p) notFound();
 
   const { member } = p;
@@ -157,6 +162,14 @@ export default async function BuilderPage({
           canEdit={canEditNowBuilding(viewer, member.id)}
         />
       )}
+
+      {/* Full width under "Now building". The add row and request buttons
+          are owner-only; candidates is null for everyone else. */}
+      <Teammates
+        lists={teammates}
+        candidates={teammates.candidates}
+        isOwner={viewer?.memberId === member.id}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
         <div className="flex flex-col gap-6">

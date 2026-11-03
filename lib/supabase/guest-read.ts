@@ -21,6 +21,7 @@ export const GUEST_READABLE_TABLES = new Set([
   "member_summaries",
   "shipped_approvals",
   "project_aliases",
+  "teammate_links", // profiles show confirmed ones only (lib/data/teammates.ts)
 ]);
 
 export class GuestWriteBlocked extends Error {}

@@ -216,6 +216,10 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 - One meeting per date: unique index on `events(date) where type = 'meeting'` (no duplicates existed when it was added), checked on the server too; a taken date shows "There's already a meeting on Thu, Oct 29" with a link to open it.
 - The picker is date-based (`?date=`; old `?week=` links still work): season weeks plus every meeting, so future meetings appear and "Later" reaches them. Future meetings open with sign-ins locked until their date (server 409 + database trigger, which also covers demos).
 
+### Teammates ✅
+- Builders add teammates from their own profile (roster picker only). Pending until the other person confirms (Accept on their profile, or the emailed Confirm/Decline link, signed in as them). Asking someone who already asked you confirms it. Declines are hidden everywhere and the declined requester waits 30 days. Either teammate can remove a confirmed link. Leaving the roster drops all links.
+- Email via Resend (`RESEND_API_KEY`, `EMAIL_FROM`); failed sends show "Resend" to the requester. Links: single-use tokens, sha256 stored, 14-day expiry.
+
 ### Phase 5: GitHub
 - `/admin/members`: link GitHub usernames, fix any GroupMe ↔ member mismatches, and toggle exec board status (sets admin + `exclude_from_rankings`)
 - Project aliases (on `/admin/members/[id]`): list each member's project names with message counts, and merge variants into one canonical name (writes `project_aliases`). Shipped counting and the classifier's known-projects context pick up aliases automatically.
@@ -247,7 +251,7 @@ Kept simple: weekly meetings only, no history import, no general events page yet
 - Deploy to Vercel; add `vercel.json` crons: GroupMe every 6 hours; scoring, GitHub, and score computation nightly
 - Every cron route checks `Authorization: Bearer ${CRON_SECRET}`
 - `/admin/health`: last run, status, and errors for each sync
-- [ ] **TODO: separate test database.** `npm run test:db` still runs against production (`.env.local`). Create a second Supabase project, put its keys in `.env.test.local`, apply the migrations there, and make `vitest.db.config.ts` refuse to run unless it points at that project (URL differs from production's). Until then, fixtures record ids immediately, cleanup throws on failed deletes, and `tests/db/sweep.ts` removes `@example.invalid` leftovers after every run. (Added Oct 29, 2026, after two test members leaked into the live roster on Oct 24.)
+- [x] **Separate test database.** `npm run test:db` and `npm run db:push:test` read only `.env.test.local` and refuse the production project ref (`lib/db-target.ts`, checked in `vitest.db.config.ts`, `tests/db/fixtures.ts` and `tests/db/sweep.ts`). `npm run db:push` still targets the CLI-linked production project. (TODO added Oct 29, 2026 after two test members leaked into the live roster on Oct 24; guard added Nov 2.)
 - **Done when:** it runs untouched for a week and the numbers update on their own.
 
 ## 7. Guardrails for Claude Code

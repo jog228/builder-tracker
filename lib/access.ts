@@ -25,6 +25,7 @@ const MEMBER_ROUTES: RegExp[] = [
   /^\/stats$/,
   /^\/how-it-works$/, // the scoring rubric
   /^\/builders\/[0-9a-f-]{36}$/, // profiles linked from the leaderboard
+  /^\/teammates\/respond$/, // confirm/decline links in teammate emails
 ];
 
 /** Read-only pages guests may view (each also in MEMBER_ROUTES). */
@@ -78,4 +79,20 @@ export function routeDecision(
   if (access === "admin" && !session.isAdmin)
     return { action: "redirect", to: MEMBER_HOME };
   return { action: "next" };
+}
+
+// ─── Back to an email link after signing in ─────────────────────────────────
+// A signed-out builder who opens a teammate email link is sent to /login;
+// middleware remembers the link in this cookie and /auth/callback returns
+// them to it. Only exact teammate links qualify, so it can't become an open
+// redirect.
+
+export const RETURN_TO_COOKIE = "bs_return_to";
+
+const RETURN_TO =
+  /^\/teammates\/respond\?token=[A-Za-z0-9_-]{43}(&action=(confirm|decline))?$/;
+
+/** The path + query to come back to after login, or null. */
+export function safeReturnTo(pathAndQuery: string | null | undefined) {
+  return pathAndQuery && RETURN_TO.test(pathAndQuery) ? pathAndQuery : null;
 }
